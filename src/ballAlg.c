@@ -1,7 +1,11 @@
 #include <stdio.h>
+#include <string.h>
 #include <omp.h>
 #include <math.h>
 #include "gen_points.c"
+
+#define LEFT 0
+#define RIGHT 1
 
 typedef struct node
 {
@@ -83,7 +87,6 @@ long *furthest_apart(long *subset, long subset_len)
     return ret;
 }
 
-
 double inner_product(double *a, double *b)
 {
     double total = 0;
@@ -98,33 +101,29 @@ double inner_product(double *a, double *b)
 
 void difference(double *a, double *b, double *res)
 {
-    
+
     for (int dim = 0; dim < n_dims; dim++)
     {
         res[dim] = a[dim] - b[dim];
     }
-    
 }
 
 void sum(double *a, double *b, double *res)
 {
-    
+
     for (int dim = 0; dim < n_dims; dim++)
     {
         res[dim] = a[dim] + b[dim];
     }
-    
 }
 
-
-void vector_scalar_product(double scalar, double* v, double* res)
+void vector_scalar_product(double scalar, double *v, double *res)
 {
-    
+
     for (int dim = 0; dim < n_dims; dim++)
     {
         res[dim] = scalar * v[dim];
     }
-    
 }
 
 double **orth_projection(long *subset, long subset_len, long *a_b)
@@ -136,16 +135,23 @@ double **orth_projection(long *subset, long subset_len, long *a_b)
     double *b_minus_a = (double *)malloc(sizeof(double) * n_dims);
     difference(pts[b], pts[a], b_minus_a);
 
-    double **proj = (double **) malloc(sizeof(double *) * subset_len);
+    double **proj = (double **)malloc(sizeof(double *) * subset_len);
 
     for (long p = 0; p < subset_len; p++)
     {
+        proj[p] = (double *)malloc(sizeof(double) * n_dims);
+
+        if (subset[p] == a || subset[p] == b)
+        {
+            memcpy(proj[p], pts[subset[p]], sizeof(double) * n_dims);
+            continue;
+        }
+
         double *p_minus_a = (double *)malloc(sizeof(double) * n_dims);
         difference(pts[subset[p]], pts[a], p_minus_a);
 
         double scalar = inner_product(p_minus_a, b_minus_a) / inner_product(b_minus_a, b_minus_a);
-        
-        proj[p] = (double *)malloc(sizeof(double) * n_dims);
+
         vector_scalar_product(scalar, b_minus_a, proj[p]);
         sum(proj[p], pts[a], proj[p]);
 
@@ -157,33 +163,148 @@ double **orth_projection(long *subset, long subset_len, long *a_b)
     return proj;
 }
 
-node_t *build_tree(long *subset, long subset_len)
+int cmpfunc(const void *pt_1, const void *pt_2)
 {
+    double const *p1 = *(double const **)pt_1;
+    double const *p2 = *(double const **)pt_2;
 
-    // Find A and B
-    long *a_b = furthest_apart(subset, subset_len);
+    if (p1[0] < p2[0])
+        return -1;
+    if (p1[0] > p2[0])
+        return 1;
+    return 0;
+}
 
-    // Orthogonal projection
-    double **orth = orth_projection(subset, subset_len, a_b);
+double *find_median(double **orth, long subset_len)
+{
+    double **ordered_orth = (double **)malloc(sizeof(double *) * subset_len);
+    memcpy(ordered_orth, orth, sizeof(double *) * subset_len);
 
-    for (int i = 0; i < 5; i++)
+    qsort(ordered_orth, subset_len, sizeof(orth[0]), cmpfunc);
+
+    double *new_pt = (double *)malloc(sizeof(double) * n_dims);
+    if (subset_len % 2 == 1)
     {
-        printf("%f %f\n", orth[i][0], orth[i][1]);
+        int mid_index = (int)subset_len / 2;
+        memcpy(new_pt, ordered_orth[mid_index], sizeof(double) * n_dims);
     }
-    
+    else
+    {
+        int idx1 = (int) (subset_len / 2) - 1;
+        int idx2 = (int) subset_len / 2;
 
-    double *center_coords = (double *)malloc(sizeof(double) * n_dims);
+        for (int i = 0; i < n_dims; i++)
+        {
+            new_pt[i] = (ordered_orth[idx1][i] + ordered_orth[idx2][i]) / 2.0;
+            printf("centerree %d\n", idx1);
+        }
+    }
 
-    center_coords[0] = 5.1;
-    center_coords[1] = 219.0;
+    free(ordered_orth);
+    return new_pt;
+}
 
-    node_t *root = create_node(1290, center_coords, 3.2);
+void split(double **orth, double *median, long subset_len, long *left, long *right)
+{
+    long ind_left = 0;
+    long ind_right = 0;
 
-    // if subset > 0
-    // root->L = build_tree(subset_L);
-    // root->R = build_tree(subset_R);
+    for (int i = 0; i < subset_len; i++)
+    {
+        if (median[0] > orth[i][0])
+        {
+            left[ind_left] = i;
+            ind_left++;
+        }
+        else
+        {
+            right[ind_right] = i;
+            ind_right++;
+        }
+    }
+}
 
-    free(a_b);
+double find_radius(double *center, long *subset, long subset_len)
+{
+    if (subset_len == 1 || subset_len == 0)
+    {
+        return 0;
+    }
+
+    double current_dist;
+    double max_dist = -1;
+    double total;
+
+    for (long i = 0; i < subset_len; i++)
+    {
+        current_dist = 0;
+        total = 0;
+        for (int d = 0; d < n_dims; d++)
+        {
+            printf("%f %f\n", center[d], pts[subset[i]][d]);
+            total += ((center[d] - pts[subset[i]][d]) * (center[d] - pts[subset[i]][d]));
+        }
+        current_dist = sqrt(total);
+
+        if (current_dist > max_dist)
+        {
+            max_dist = current_dist;
+        }
+    }
+
+    return max_dist;
+}
+
+node_t *build_tree(long *subset, long subset_len, long id)
+{
+    node_t *root; 
+
+    if (subset_len > 1)
+    {
+        // Find A and B
+        long *a_b = furthest_apart(subset, subset_len);
+
+        // Orthogonal projection
+        double **orth = orth_projection(subset, subset_len, a_b);
+
+        // Find median point
+        double *median = find_median(orth, subset_len);
+
+        // Find radius
+        double radius = find_radius(median, subset, subset_len);
+
+        printf("Radius: %f\n", radius);
+
+        // Create node with id, center coords and radius
+        root = create_node(id, median, radius);
+
+        // Split among L, R
+        long *subset_L = (long *)malloc(sizeof(long) * subset_len / 2);
+        long *subset_R = (long *)malloc(sizeof(long) * (subset_len / 2 + (subset_len % 2)));
+        split(orth, median, subset_len, subset_L, subset_R);
+
+        root->L = build_tree(subset_L, subset_len / 2, id + 1);
+        root->R = build_tree(subset_R, subset_len / 2 + (subset_len % 2), id + 2);
+
+        for (long i = 0; i < subset_len; i++)
+        {
+            // only free if orth projection is not A or B
+            free(orth[i]);
+        }
+        free(orth);
+        free(a_b);
+        
+    }
+    else
+    {
+        // Create leaf
+        root = create_node(-1, pts[subset[0]], 0);
+
+        printf("Radius: %d\n", 0);
+
+    }
+
+    free(subset);
 
     return root;
 }
@@ -232,12 +353,11 @@ int main(int argc, char *argv[])
         full_set[i] = i;
     }
 
-    node_t *root = build_tree(full_set, n_points);
+    node_t *root = build_tree(full_set, n_points, 0);
 
     exec_time += omp_get_wtime();
     fprintf(stderr, "%.1lf\n", exec_time);
 
-    free(full_set);
     dump_tree(root); // to the stdout!
     return 0;
 }
