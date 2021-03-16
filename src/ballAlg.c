@@ -52,13 +52,21 @@ double distance(long a, long b)
 long *furthest_apart(long *subset, long subset_len)
 {
 
-    // Don't forget: A and B are indexes relative to the subset!
+    // Don't forget: A and B are indexes relative to the subset!  
 
     long first = subset[0];
     double max_dist = -1;
     double curr_dist;
 
     long *ret = (long *)malloc(sizeof(long) * 2);
+
+    if (subset_len == 2)
+    {
+        ret[0] = 1;
+        ret[1] = 0;
+
+        return ret;
+    }
 
     for (long i = 0; i < subset_len; i++)
     {
@@ -132,10 +140,10 @@ double **orth_projection(long *subset, long subset_len, long *a_b)
     long a = subset[a_b[0]];
     long b = subset[a_b[1]];
 
+    double **proj = (double **)malloc(sizeof(double *) * subset_len);
+    
     double *b_minus_a = (double *)malloc(sizeof(double) * n_dims);
     difference(pts[b], pts[a], b_minus_a);
-
-    double **proj = (double **)malloc(sizeof(double *) * subset_len);
 
     for (long p = 0; p < subset_len; p++)
     {
@@ -196,7 +204,6 @@ double *find_median(double **orth, long subset_len)
         for (int i = 0; i < n_dims; i++)
         {
             new_pt[i] = (ordered_orth[idx1][i] + ordered_orth[idx2][i]) / 2.0;
-            printf("centerree %d\n", idx1);
         }
     }
 
@@ -241,7 +248,6 @@ double find_radius(double *center, long *subset, long subset_len)
         total = 0;
         for (int d = 0; d < n_dims; d++)
         {
-            printf("%f %f\n", center[d], pts[subset[i]][d]);
             total += ((center[d] - pts[subset[i]][d]) * (center[d] - pts[subset[i]][d]));
         }
         current_dist = sqrt(total);
