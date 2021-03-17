@@ -52,7 +52,7 @@ double distance(long a, long b)
 long *furthest_apart(long *subset, long subset_len)
 {
 
-    // Don't forget: A and B are indexes relative to the subset!  
+    // Don't forget: A and B are indexes relative to the subset!
 
     long first = subset[0];
     double max_dist = -1;
@@ -60,7 +60,7 @@ long *furthest_apart(long *subset, long subset_len)
 
     long *ret = (long *)malloc(sizeof(long) * 2);
 
-/*     if (subset_len == 2)
+    /*     if (subset_len == 2)
     {
         ret[0] = 1;
         ret[1] = 0;
@@ -141,7 +141,7 @@ double **orth_projection(long *subset, long subset_len, long *a_b)
     long b = subset[a_b[1]];
 
     double **proj = (double **)malloc(sizeof(double *) * subset_len);
-    
+
     double *b_minus_a = (double *)malloc(sizeof(double) * n_dims);
     difference(pts[b], pts[a], b_minus_a);
 
@@ -198,8 +198,8 @@ double *find_median(double **orth, long subset_len)
     }
     else
     {
-        int idx1 = (int) (subset_len / 2) - 1;
-        int idx2 = (int) subset_len / 2;
+        int idx1 = (int)(subset_len / 2) - 1;
+        int idx2 = (int)subset_len / 2;
 
         for (int i = 0; i < n_dims; i++)
         {
@@ -263,10 +263,10 @@ double find_radius(double *center, long *subset, long subset_len)
 
 node_t *build_tree(long *subset, long subset_len, long id)
 {
-    node_t *root; 
+    node_t *root;
 
     if (subset_len > 1)
-    {   
+    {
 
         // Find A and B
         long *a_b = furthest_apart(subset, subset_len);
@@ -299,15 +299,13 @@ node_t *build_tree(long *subset, long subset_len, long id)
         }
         free(orth);
         free(a_b);
-        
     }
     else
     {
         // Create leaf
-        root = create_node(id + 3, pts[subset[0]], 0);
+        root = create_node(id, pts[subset[0]], 0);
 
         printf("Radius: %d\n", 0);
-
     }
 
     free(subset);
@@ -321,9 +319,10 @@ void dump_tree(node_t *root)
     node_t *L = root->L;
     node_t *R = root->R;
 
-    if(L == NULL && R == NULL){
+    if (L == NULL && R == NULL)
+    {
         printf("%d -1 -1 %f", root->id, root->radius);
-        
+
         for (size_t i = 0; i < n_dims; i++)
         {
             printf("%f ", root->center_coord[i]);
@@ -336,7 +335,7 @@ void dump_tree(node_t *root)
     }
 
     printf("%d %d %d %f", root->id, L->id, R->id, root->radius);
-        
+
     for (size_t i = 0; i < n_dims; i++)
     {
         printf("%f ", root->center_coord[i]);
@@ -347,7 +346,6 @@ void dump_tree(node_t *root)
     // Recursive call?
     dump_tree(L);
     dump_tree(R);
-
 }
 
 int main(int argc, char *argv[])
