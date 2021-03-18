@@ -21,14 +21,13 @@ long n_points;
 int seed;
 double **pts;
 node_t *tree;
-long num_nodes;
 
 node_t *create_node(int id, double *center_coord, double radius)
 {
     // Allocate memory for new node
     node_t *node = (node_t *)malloc(sizeof(node_t));
 
-    node->id = num_nodes++;
+    node->id = id;
     node->center_coord = center_coord;
     node->radius = radius;
 
@@ -286,7 +285,7 @@ node_t *build_tree(long *subset, long subset_len, long id)
 
 
         root->L = build_tree(subset_L, subset_len / 2, id + 1);
-        root->R = build_tree(subset_R, subset_len / 2 + (subset_len % 2), id + 2);
+        root->R = build_tree(subset_R, subset_len / 2 + (subset_len % 2), id + subset_len - (subset_len % 2));
 
         for (long i = 0; i < subset_len; i++)
         {
@@ -299,7 +298,7 @@ node_t *build_tree(long *subset, long subset_len, long id)
     {
 
         // Create leaf
-        root = create_node(id + 3, pts[subset[0]], 0);
+        root = create_node(id, pts[subset[0]], 0);
 
         // printf("Radius: %d\n", 0);
     }
@@ -364,7 +363,7 @@ int main(int argc, char *argv[])
         full_set[i] = i;
     }
 
-    num_nodes = 0;
+    long num_nodes = 2 * n_points - 1;
     node_t *root = build_tree(full_set, n_points, 0);
 
     exec_time += omp_get_wtime();
