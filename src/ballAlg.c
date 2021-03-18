@@ -61,14 +61,6 @@ long *furthest_apart(long *subset, long subset_len)
 
     long *ret = (long *)malloc(sizeof(long) * 2);
 
-    /*     if (subset_len == 2)
-    {
-        ret[0] = 1;
-        ret[1] = 0;
-
-        return ret;
-    } */
-
     for (long i = 0; i < subset_len; i++)
     {
         curr_dist = distance(first, subset[i]);
@@ -212,7 +204,7 @@ double *find_median(double **orth, long subset_len)
     return new_pt;
 }
 
-void split(double **orth, double *median, long subset_len, long *left, long *right)
+void split(double **orth, double *median, long* subset, long subset_len, long *left, long *right)
 {
     long ind_left = 0;
     long ind_right = 0;
@@ -221,12 +213,12 @@ void split(double **orth, double *median, long subset_len, long *left, long *rig
     {
         if (median[0] > orth[i][0])
         {
-            left[ind_left] = i;
+            left[ind_left] = subset[i];
             ind_left++;
         }
         else
         {
-            right[ind_right] = i;
+            right[ind_right] = subset[i];
             ind_right++;
         }
     }
@@ -268,7 +260,7 @@ node_t *build_tree(long *subset, long subset_len, long id)
 
     if (subset_len > 1)
     {
-
+        
         // Find A and B
         long *a_b = furthest_apart(subset, subset_len);
 
@@ -281,7 +273,7 @@ node_t *build_tree(long *subset, long subset_len, long id)
         // Find radius
         double radius = find_radius(median, subset, subset_len);
 
-        printf("Radius: %f, subset_len %ld, A: %ld, B: %ld\n", radius, subset_len, a_b[0], a_b[1]);
+        // printf("Radius: %f, subset_len %ld, A: %ld, B: %ld\n", radius, subset_len, a_b[0], a_b[1]);
 
         // Create node with id, center coords and radius
         root = create_node(id, median, radius);
@@ -289,7 +281,9 @@ node_t *build_tree(long *subset, long subset_len, long id)
         // Split among L, R
         long *subset_L = (long *)malloc(sizeof(long) * subset_len / 2);
         long *subset_R = (long *)malloc(sizeof(long) * (subset_len / 2 + (subset_len % 2)));
-        split(orth, median, subset_len, subset_L, subset_R);
+        split(orth, median, subset, subset_len, subset_L, subset_R);
+
+
 
         root->L = build_tree(subset_L, subset_len / 2, id + 1);
         root->R = build_tree(subset_R, subset_len / 2 + (subset_len % 2), id + 2);
@@ -303,10 +297,11 @@ node_t *build_tree(long *subset, long subset_len, long id)
     }
     else
     {
+
         // Create leaf
         root = create_node(id + 3, pts[subset[0]], 0);
 
-        printf("Radius: %d\n", 0);
+        // printf("Radius: %d\n", 0);
     }
 
     free(subset);
@@ -324,16 +319,16 @@ void dump_tree(node_t *root)
 
     if (!(L == NULL && R == NULL))
     {
-        printf("%d %d %d %f", root->id, L->id, R->id, root->radius);
+        printf("%d %d %d %f ", root->id, L->id, R->id, root->radius);
     }
     else
     {
-        printf("%d -1 -1 %f", root->id, root->radius);
+        printf("%d -1 -1 %f ", root->id, root->radius);
     }
 
     for (size_t i = 0; i < n_dims; i++)
     {
-        printf("%f ", root->center_coord[i]);
+        printf("%.6f ", root->center_coord[i]);
     }
 
     printf("\n");
