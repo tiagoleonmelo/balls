@@ -203,7 +203,7 @@ double *find_median(double **orth, long subset_len)
     return new_pt;
 }
 
-void split(double **orth, double *median, long* subset, long subset_len, long *left, long *right)
+void split(double **orth, double *median, long *subset, long subset_len, long *left, long *right)
 {
     long ind_left = 0;
     long ind_right = 0;
@@ -259,7 +259,7 @@ node_t *build_tree(long *subset, long subset_len, long id)
 
     if (subset_len > 1)
     {
-        
+
         // Find A and B
         long *a_b = furthest_apart(subset, subset_len);
 
@@ -281,8 +281,6 @@ node_t *build_tree(long *subset, long subset_len, long id)
         long *subset_L = (long *)malloc(sizeof(long) * subset_len / 2);
         long *subset_R = (long *)malloc(sizeof(long) * (subset_len / 2 + (subset_len % 2)));
         split(orth, median, subset, subset_len, subset_L, subset_R);
-
-
 
         root->L = build_tree(subset_L, subset_len / 2, id + 1);
         root->R = build_tree(subset_R, subset_len / 2 + (subset_len % 2), id + subset_len - (subset_len % 2));
@@ -371,5 +369,7 @@ int main(int argc, char *argv[])
 
     printf("%d %ld\n", n_dims, num_nodes);
     dump_tree(root); // to the stdout!
+    free(pts[0]);
+    free(pts);
     return 0;
 }
