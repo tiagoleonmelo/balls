@@ -126,91 +126,150 @@ void vector_scalar_product(double scalar, double *v, double *res)
     }
 }
 
-double **orth_projection(long *subset, long subset_len, long *a_b)
+double *orth_projection(long *subset, long subset_len, long *a_b)
 {
 
     long a = subset[a_b[0]];
     long b = subset[a_b[1]];
 
-    double **proj = (double **)malloc(sizeof(double *) * subset_len);
+    double *proj = (double *)malloc(sizeof(double) * subset_len);
 
-    double *b_minus_a = (double *)malloc(sizeof(double) * n_dims);
-    difference(pts[b], pts[a], b_minus_a);
+    double b_minus_a = pts[b][0] - pts[a][0];
+
+    double *b_minus_a_vec = (double *)malloc(sizeof(double) * n_dims);
+    difference(pts[b], pts[a], b_minus_a_vec);
+
+    double inner_prod_b_minus_a = inner_product(b_minus_a_vec, b_minus_a_vec);
 
     for (long p = 0; p < subset_len; p++)
     {
-        proj[p] = (double *)malloc(sizeof(double) * n_dims);
 
-        if (subset[p] == a || subset[p] == b)
+        if (p == a_b[0] || p == a_b[1]) // If p == a or p == b
         {
-            memcpy(proj[p], pts[subset[p]], sizeof(double) * n_dims);
+            proj[p] = pts[subset[p]][0];
             continue;
         }
 
-        double *p_minus_a = (double *)malloc(sizeof(double) * n_dims);
-        difference(pts[subset[p]], pts[a], p_minus_a);
+        double p_minus_a = pts[subset[p]][0] - pts[a][0];
 
-        double scalar = inner_product(p_minus_a, b_minus_a) / inner_product(b_minus_a, b_minus_a);
+        double *p_minus_a_vec = (double *)malloc(sizeof(double) * n_dims);
+        difference(pts[subset[p]], pts[a], p_minus_a_vec);
 
-        vector_scalar_product(scalar, b_minus_a, proj[p]);
-        sum(proj[p], pts[a], proj[p]);
+        double scalar = inner_product(p_minus_a_vec, b_minus_a_vec) / inner_prod_b_minus_a;
 
-        free(p_minus_a);
+        proj[p] = scalar * b_minus_a + pts[a][0];
+
+        free(p_minus_a_vec);
     }
 
-    free(b_minus_a);
+    free(b_minus_a_vec);
 
     return proj;
 }
 
+void single_projection(double *point, long *a_b, long *subset, long subset_len, double *new_point)
+{
+    long a = subset[a_b[0]];
+    long b = subset[a_b[1]];
+
+    // double *proj = (double *)malloc(sizeof(double) * n_dims);
+
+    double *b_minus_a = (double *)malloc(sizeof(double) * n_dims);
+    difference(pts[b], pts[a], b_minus_a);
+
+    double *p_minus_a = (double *)malloc(sizeof(double) * n_dims);
+    difference(point, pts[a], p_minus_a);
+
+    double scalar = inner_product(p_minus_a, b_minus_a) / inner_product(b_minus_a, b_minus_a);
+
+    vector_scalar_product(scalar, b_minus_a, new_point);
+    sum(new_point, pts[a], new_point);
+
+    free(p_minus_a);
+
+    free(b_minus_a);
+
+}
+
 int cmpfunc(const void *pt_1, const void *pt_2)
 {
-    double const *p1 = *(double const **)pt_1;
-    double const *p2 = *(double const **)pt_2;
+    double const p1 = *(double const *)pt_1;
+    double const p2 = *(double const *)pt_2;
 
-    if (p1[0] < p2[0])
+    if (p1 < p2)
         return -1;
-    if (p1[0] > p2[0])
+    if (p1 > p2)
         return 1;
     return 0;
 }
 
-double *find_median(double **orth, long subset_len)
+double *find_median(double *orth, long *subset, long subset_len, long *a_b)
 {
-    double **ordered_orth = (double **)malloc(sizeof(double *) * subset_len);
-    memcpy(ordered_orth, orth, sizeof(double *) * subset_len);
+    double *ordered_orth = (double *)malloc(sizeof(double) * subset_len);
+    memcpy(ordered_orth, orth, sizeof(double) * subset_len);
 
-    qsort(ordered_orth, subset_len, sizeof(orth[0]), cmpfunc);
+    qsort(ordered_orth, subset_len, sizeof(double), cmpfunc);
 
     double *new_pt = (double *)malloc(sizeof(double) * n_dims);
+
     if (subset_len % 2 == 1)
     {
+        // Take index, find corresponding element in orth, calculate orth_proj of that point, return it
         int mid_index = (int)subset_len / 2;
-        memcpy(new_pt, ordered_orth[mid_index], sizeof(double) * n_dims);
+
+        for (long i = 0; i < subset_len; i++)
+        {
+            if (orth[i] == ordered_orth[mid_index])
+            {
+                single_projection(pts[subset[i]], a_b, subset, subset_len, new_pt); // Pass along point
+                return new_pt;
+            }
+        }
+
+        // memcpy(new_pt, ordered_orth[mid_index], sizeof(double) * n_dims);
     }
     else
     {
         int idx1 = (int)(subset_len / 2) - 1;
         int idx2 = (int)subset_len / 2;
 
+        double *pt1 = (double *)malloc(sizeof(double) * n_dims);
+        double *pt2 = (double *)malloc(sizeof(double) * n_dims);
+
+        for (long i = 0; i < subset_len; i++)
+        {
+            if (orth[i] == ordered_orth[idx1])
+            {
+                single_projection(pts[subset[i]], a_b, subset, subset_len, pt1);
+            }
+            else if (orth[i] == ordered_orth[idx2])
+            {
+                single_projection(pts[subset[i]], a_b, subset, subset_len, pt2);
+            }
+        }
+
         for (int i = 0; i < n_dims; i++)
         {
-            new_pt[i] = (ordered_orth[idx1][i] + ordered_orth[idx2][i]) / 2.0;
+            new_pt[i] = (pt1[i] + pt2[i]) / 2.0;
         }
+
+        free(pt1);
+        free(pt2);
     }
 
     free(ordered_orth);
+
     return new_pt;
 }
 
-void split(double **orth, double *median, long *subset, long subset_len, long *left, long *right)
+void split(double *orth, double *median, long *subset, long subset_len, long *left, long *right)
 {
     long ind_left = 0;
     long ind_right = 0;
 
     for (int i = 0; i < subset_len; i++)
     {
-        if (median[0] > orth[i][0])
+        if (median[0] > orth[i])
         {
             left[ind_left] = subset[i];
             ind_left++;
@@ -264,10 +323,10 @@ node_t *build_tree(long *subset, long subset_len, long id)
         long *a_b = furthest_apart(subset, subset_len);
 
         // Orthogonal projection
-        double **orth = orth_projection(subset, subset_len, a_b);
+        double *orth = orth_projection(subset, subset_len, a_b);
 
         // Find median point
-        double *median = find_median(orth, subset_len);
+        double *median = find_median(orth, subset, subset_len, a_b);
 
         // Find radius
         double radius = find_radius(median, subset, subset_len);
@@ -285,10 +344,6 @@ node_t *build_tree(long *subset, long subset_len, long id)
         root->L = build_tree(subset_L, subset_len / 2, id + 1);
         root->R = build_tree(subset_R, subset_len / 2 + (subset_len % 2), id + subset_len - (subset_len % 2));
 
-        for (long i = 0; i < subset_len; i++)
-        {
-            free(orth[i]);
-        }
         free(orth);
         free(a_b);
     }
