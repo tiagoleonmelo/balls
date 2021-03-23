@@ -53,14 +53,13 @@ long *furthest_apart(long *subset, long subset_len)
 {
 
     // Don't forget: A and B are indexes relative to the subset!
-
     long first = subset[0];
     double max_dist = -1;
     double curr_dist;
 
     long *ret = (long *)malloc(sizeof(long) * 2);
 
-    for (long i = 0; i < subset_len; i++)
+    for (long i = 1; i < subset_len; i++)
     {
         curr_dist = distance(first, subset[i]);
 
@@ -75,6 +74,11 @@ long *furthest_apart(long *subset, long subset_len)
 
     for (long i = 0; i < subset_len; i++)
     {
+        if (ret[0] == i)
+        {
+            continue;
+        }
+
         curr_dist = distance(subset[ret[0]], subset[i]);
 
         if (curr_dist > max_dist)
@@ -170,6 +174,7 @@ double *single_projection(double orth_zero, long *a_b, long *subset, double *b_m
     long b = subset[a_b[1]];
 
     // retrieve scalar knowing that orth_zero = scalar * (b-a)[0] + a[0]
+
     double scalar = (orth_zero - pts[a][0]) / b_minus_a_vec[0];
 
     new_point[0] = orth_zero;
@@ -214,8 +219,6 @@ double *find_median(double *orth, long *subset, long subset_len, long *a_b, doub
                 break;
             }
         }
-
-        // memcpy(new_pt, ordered_orth[mid_index], sizeof(double) * n_dims);
     }
     else
     {
@@ -250,6 +253,90 @@ double *find_median(double *orth, long *subset, long subset_len, long *a_b, doub
     return new_pt;
 }
 
+// Standard partition process of QuickSort().
+// It considers the last element as pivot
+// and moves all smaller element to left of
+// it and greater elements to right
+long partition(double arr[], long l, long r)
+{
+    double temp;
+    int x = arr[r], i = l;
+    for (int j = l; j <= r - 1; j++)
+    {
+        if (arr[j] <= x)
+        {
+            temp = arr[i];
+            arr[i] = arr[j];
+            arr[j] = temp;
+            i++;
+        }
+    }
+    temp = arr[i];
+    arr[i] = arr[r];
+    arr[r] = temp;
+    return i;
+}
+
+// This function returns k'th smallest
+// element in arr[l..r] using QuickSort
+// based method.  ASSUMPTION: ALL ELEMENTS
+// IN ARR[] ARE DISTINCT
+double quickselect(double *arr, long l, long r, long k)
+{
+
+    // If k is smaller than number of
+    // elements in array
+    if (k > 0 && k <= r - l + 1)
+    {
+        // Partition the array around last
+        // element and get position of pivot
+        // element in sorted array
+        long index = partition(arr, l, r);
+
+        // If position is same as k
+        if (index - l == k - 1)
+            return arr[index];
+
+        // If position is more, recur
+        // for left subarray
+        if (index - l > k - 1)
+            return quickselect(arr, l, index - 1, k);
+
+        // Else recur for right subarray
+        return quickselect(arr, index + 1, r,
+                           k - index + l - 1);
+    }
+
+    // If k is more than number of
+    // elements in array
+    return -1;
+}
+
+double find_median_v2(double *orth, long *subset, long subset_len)
+{
+
+    double pivot;
+    long idx;
+
+    double *orth_copy = (double *)malloc(sizeof(double) * subset_len);
+    memcpy(orth_copy, orth, sizeof(double) * subset_len);
+
+    long mid = subset_len / 2 + 1;
+    double median;
+
+    if (subset_len % 2 == 1)
+    {
+        median = quickselect(orth_copy, 0, subset_len - 1, mid);
+    }
+    else
+    {
+        median = 0.5 * (quickselect(orth_copy, 0, subset_len - 1, mid - 1) + quickselect(orth_copy, 0, subset_len - 1, mid));
+    }
+
+    free(orth_copy);
+    return median;
+}
+
 void split(double *orth, double *median, long *subset, long subset_len, long *left, long *right)
 {
     long ind_left = 0;
@@ -272,10 +359,10 @@ void split(double *orth, double *median, long *subset, long subset_len, long *le
 
 double find_radius(double *center, long *subset, long subset_len)
 {
-    if (subset_len == 1 || subset_len == 0)
-    {
-        return 0;
-    }
+    // if (subset_len == 1 || subset_len == 0)
+    // {
+    //     return 0;
+    // }
 
     double current_dist;
     double max_dist = -1;
@@ -316,12 +403,12 @@ node_t *build_tree(long *subset, long subset_len, long id)
         double *orth = orth_projection(subset, subset_len, a_b, b_minus_a_vec);
 
         // Find median point
-        double *median = find_median(orth, subset, subset_len, a_b, b_minus_a_vec);
+        // double *median = find_median(orth, subset, subset_len, a_b, b_minus_a_vec);
+        double zero_median = find_median_v2(orth, subset, subset_len);
+        double *median = single_projection(zero_median, a_b, subset, b_minus_a_vec);
 
         // Find radius
         double radius = find_radius(median, subset, subset_len);
-
-        // printf("Radius: %f, subset_len %ld, A: %ld, B: %ld\n", radius, subset_len, a_b[0], a_b[1]);
 
         // Create node with id, center coords and radius
         root = create_node(id, median, radius);
@@ -343,8 +430,6 @@ node_t *build_tree(long *subset, long subset_len, long id)
 
         // Create leaf
         root = create_node(id, pts[subset[0]], 0);
-
-        // printf("Radius: %d\n", 0);
     }
 
     free(subset);
@@ -379,7 +464,7 @@ void dump_tree(node_t *root)
         free(root->center_coord);
     free(root);
 
-    // Recursive call?
+    // Recursive call
     dump_tree(L);
     dump_tree(R);
 }
