@@ -253,90 +253,6 @@ double *find_median(double *orth, long *subset, long subset_len, long *a_b, doub
     return new_pt;
 }
 
-// Standard partition process of QuickSort().
-// It considers the last element as pivot
-// and moves all smaller element to left of
-// it and greater elements to right
-long partition(double arr[], long l, long r)
-{
-    double temp;
-    int x = arr[r], i = l;
-    for (int j = l; j <= r - 1; j++)
-    {
-        if (arr[j] <= x)
-        {
-            temp = arr[i];
-            arr[i] = arr[j];
-            arr[j] = temp;
-            i++;
-        }
-    }
-    temp = arr[i];
-    arr[i] = arr[r];
-    arr[r] = temp;
-    return i;
-}
-
-// This function returns k'th smallest
-// element in arr[l..r] using QuickSort
-// based method.  ASSUMPTION: ALL ELEMENTS
-// IN ARR[] ARE DISTINCT
-double quickselect(double *arr, long l, long r, long k)
-{
-
-    // If k is smaller than number of
-    // elements in array
-    if (k > 0 && k <= r - l + 1)
-    {
-        // Partition the array around last
-        // element and get position of pivot
-        // element in sorted array
-        long index = partition(arr, l, r);
-
-        // If position is same as k
-        if (index - l == k - 1)
-            return arr[index];
-
-        // If position is more, recur
-        // for left subarray
-        if (index - l > k - 1)
-            return quickselect(arr, l, index - 1, k);
-
-        // Else recur for right subarray
-        return quickselect(arr, index + 1, r,
-                           k - index + l - 1);
-    }
-
-    // If k is more than number of
-    // elements in array
-    return -1;
-}
-
-double find_median_v2(double *orth, long *subset, long subset_len)
-{
-
-    double pivot;
-    long idx;
-
-    double *orth_copy = (double *)malloc(sizeof(double) * subset_len);
-    memcpy(orth_copy, orth, sizeof(double) * subset_len);
-
-    long mid = subset_len / 2 + 1;
-    double median;
-
-    if (subset_len % 2 == 1)
-    {
-        median = quickselect(orth_copy, 0, subset_len - 1, mid);
-    }
-    else
-    {
-        median = 0.5 * (quickselect(orth_copy, 0, subset_len - 1, mid - 1) + quickselect(orth_copy, 0, subset_len - 1, mid));
-    }
-
-    free(orth_copy);
-    return median;
-}
-
 void split(double *orth, double *median, long *subset, long subset_len, long *left, long *right)
 {
     long ind_left = 0;
@@ -403,9 +319,7 @@ node_t *build_tree(long *subset, long subset_len, long id)
         double *orth = orth_projection(subset, subset_len, a_b, b_minus_a_vec);
 
         // Find median point
-        // double *median = find_median(orth, subset, subset_len, a_b, b_minus_a_vec);
-        double zero_median = find_median_v2(orth, subset, subset_len);
-        double *median = single_projection(zero_median, a_b, subset, b_minus_a_vec);
+        double *median = find_median(orth, subset, subset_len, a_b, b_minus_a_vec);
 
         // Find radius
         double radius = find_radius(median, subset, subset_len);
