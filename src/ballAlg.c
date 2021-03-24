@@ -40,10 +40,14 @@ double distance(long a, long b)
 {
 
     double total = 0;
+    double diff;
+    double *pt_a = pts[a];
+    double *pt_b = pts[b];
 
     for (int i = 0; i < n_dims; i++)
     {
-        total += ((pts[a][i] - pts[b][i]) * (pts[a][i] - pts[b][i]));
+        diff = pt_a[i] - pt_b[i];
+        total += (diff * diff);
     }
 
     return sqrt(total);
@@ -283,14 +287,18 @@ double find_radius(double *center, long *subset, long subset_len)
     double current_dist;
     double max_dist = -1;
     double total;
+    double diff;
+    double *pt;
 
     for (long i = 0; i < subset_len; i++)
     {
         current_dist = 0;
         total = 0;
+        pt = pts[subset[i]];
         for (int d = 0; d < n_dims; d++)
         {
-            total += ((center[d] - pts[subset[i]][d]) * (center[d] - pts[subset[i]][d]));
+            diff = center[d] - pt[d];
+            total += (diff * diff);
         }
         current_dist = sqrt(total);
 
