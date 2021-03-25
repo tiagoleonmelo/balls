@@ -196,87 +196,106 @@ int cmpfunc(const void *pt_1, const void *pt_2)
     return 0;
 }
 
-void quicksort(double *number, long first, long last)
+void swap(double *a, double *b)
 {
-    long i, j, pivot;
-    double temp;
+    double temp = *a;
+    *a = *b;
+    *b = temp;
+}
 
-    if (first < last)
+// Standard partition process of QuickSort(). It considers the last
+// element as pivot and moves all smaller element to left of it and
+// greater elements to right. This function is used by randomPartition()
+long partition(double arr[], long l, long r)
+{
+    double x = arr[r];
+    long i = l;
+    for (long j = l; j <= r - 1; j++)
     {
-        pivot = first;
-        i = first;
-        j = last;
-
-        while (i < j)
+        if (arr[j] <= x)
         {
-            while (number[i] <= number[pivot] && i < last)
-                i++;
-            while (number[j] > number[pivot])
-                j--;
-            if (i < j)
-            {
-                temp = number[i];
-                number[i] = number[j];
-                number[j] = temp;
-            }
+            swap(&arr[i], &arr[j]);
+            i++;
         }
-
-        temp = number[pivot];
-        number[pivot] = number[j];
-        number[j] = temp;
-        quicksort(number, first, j - 1);
-        quicksort(number, j + 1, last);
     }
+    swap(&arr[i], &arr[r]);
+    return i;
+}
+
+// Picks a random pivot element between l and r and partitions
+// arr[l..r] around the randomly picked element using partition()
+long randomPartition(double arr[], long l, long r)
+{
+    long n = r - l + 1;
+    long pivot = rand() % n;
+    swap(&arr[l + pivot], &arr[r]);
+    return partition(arr, l, r);
+}
+
+// This function returns k'th smallest element in arr[l..r] using
+// QuickSort based method. ASSUMPTION: ELEMENTS IN ARR[] ARE DISTINCT
+double kthSmallest(double arr[], long l, long r, long k)
+{
+    // If k is smaller than number of elements in array
+    if (k > 0 && k <= r - l + 1)
+    {
+        // Partition the array around a random element and
+        // get position of pivot element in sorted array
+        long pos = randomPartition(arr, l, r);
+
+        // If position is same as k
+        if (pos - l == k - 1)
+            return arr[pos];
+        if (pos - l > k - 1) // If position is more, recur for left subarray
+            return kthSmallest(arr, l, pos - 1, k);
+
+        // Else recur for right subarray
+        return kthSmallest(arr, pos + 1, r, k - pos + l - 1);
+    }
+
+    // If k is more than the number of elements in the array
+    return 0.0;
 }
 
 double *find_median(double *orth, long *subset, long subset_len, double *pt_a, double *b_minus_a_vec)
 {
     double *new_pt;
+
+    if (subset_len == 2)
+    {
+        new_pt = single_projection(orth[0], pt_a, subset, b_minus_a_vec);
+        double *pt2 = single_projection(orth[1], pt_a, subset, b_minus_a_vec);
+
+        for (int i = 0; i < n_dims; i++)
+        {
+            new_pt[i] = (new_pt[i] + pt2[i]) / 2.0;
+        }
+        free(pt2);
+
+        return new_pt;
+    }
+
     double *ordered_orth = (double *)malloc(sizeof(double) * subset_len);
     memcpy(ordered_orth, orth, sizeof(double) * subset_len);
 
+    long mid_index = subset_len / 2;
     //qsort(ordered_orth, subset_len, sizeof(double), cmpfunc);
-    quicksort(ordered_orth, 0, subset_len - 1);
+    double median = kthSmallest(ordered_orth, 0, subset_len - 1, mid_index + 1);
 
-    if (subset_len % 2 == 1)
+    new_pt = single_projection(median, pt_a, subset, b_minus_a_vec); // Pass along point
+
+    if (subset_len % 2 == 0)
     {
-        // Take index, find corresponding element in orth, calculate orth_proj of that point, return it
-        int mid_index = (int)subset_len / 2;
+        double *pt2;
+        long mid_index2 = (subset_len / 2) - 1;
+        double median2 = kthSmallest(ordered_orth, 0, subset_len - 1, mid_index2 + 1);
+        pt2 = single_projection(median2, pt_a, subset, b_minus_a_vec);
 
-        for (long i = 0; i < subset_len; i++)
-        {
-            if (orth[i] == ordered_orth[mid_index])
-            {
-                new_pt = single_projection(orth[i], pt_a, subset, b_minus_a_vec); // Pass along point
-                break;
-            }
-        }
-    }
-    else
-    {
-        double *pt1, *pt2;
-        int idx1 = (int)(subset_len / 2) - 1;
-        int idx2 = (int)subset_len / 2;
-
-        for (long i = 0; i < subset_len; i++)
-        {
-            if (orth[i] == ordered_orth[idx1])
-            {
-                pt1 = single_projection(orth[i], pt_a, subset, b_minus_a_vec);
-            }
-            else if (orth[i] == ordered_orth[idx2])
-            {
-                pt2 = single_projection(orth[i], pt_a, subset, b_minus_a_vec);
-            }
-        }
-
-        new_pt = (double *)malloc(sizeof(double) * n_dims);
         for (int i = 0; i < n_dims; i++)
         {
-            new_pt[i] = (pt1[i] + pt2[i]) / 2.0;
+            new_pt[i] = (new_pt[i] + pt2[i]) / 2.0;
         }
 
-        free(pt1);
         free(pt2);
     }
 
