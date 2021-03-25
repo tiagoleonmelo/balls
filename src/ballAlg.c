@@ -374,14 +374,17 @@ node_t *build_tree(long *subset, long subset_len, long id)
         {
             // Find A and B
             a_b = furthest_apart(subset, subset_len);
+            double *pt_a = pts[subset[a_b[0]]];
+            double *pt_b = pts[subset[a_b[1]]];
+
             double *b_minus_a_vec = (double *)malloc(sizeof(double) * n_dims);
-            difference(pts[subset[a_b[0]]], pts[subset[a_b[1]]], b_minus_a_vec);
+            difference(pt_a, pt_b, b_minus_a_vec);
 
             // Orthogonal projection
-            orth = orth_projection(subset, subset_len, a_b, b_minus_a_vec);
+            orth = orth_projection(subset, subset_len, a_b[0], a_b[1], pt_a, b_minus_a_vec);
 
             // Find median point
-            median = find_median(orth, subset, subset_len, a_b, b_minus_a_vec);
+            median = find_median(orth, subset, subset_len, pt_a, b_minus_a_vec);
 
             // Find radius
             radius = find_radius(median, subset, subset_len);
