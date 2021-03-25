@@ -202,34 +202,37 @@ int cmpfunc(const void *pt_1, const void *pt_2)
     return 0;
 }
 
-void quicksort(double *number, long first, long last){
-   long i, j, pivot;
-   double temp;
+void quicksort(double *number, long first, long last)
+{
+    long i, j, pivot;
+    double temp;
 
-   if(first<last){
-      pivot=first;
-      i=first;
-      j=last;
+    if (first < last)
+    {
+        pivot = first;
+        i = first;
+        j = last;
 
-      while(i<j){
-         while(number[i]<=number[pivot]&&i<last)
-            i++;
-         while(number[j]>number[pivot])
-            j--;
-         if(i<j){
-            temp=number[i];
-            number[i]=number[j];
-            number[j]=temp;
-         }
-      }
+        while (i < j)
+        {
+            while (number[i] <= number[pivot] && i < last)
+                i++;
+            while (number[j] > number[pivot])
+                j--;
+            if (i < j)
+            {
+                temp = number[i];
+                number[i] = number[j];
+                number[j] = temp;
+            }
+        }
 
-      temp=number[pivot];
-      number[pivot]=number[j];
-      number[j]=temp;
-      quicksort(number,first,j-1);
-      quicksort(number,j+1,last);
-
-   }
+        temp = number[pivot];
+        number[pivot] = number[j];
+        number[j] = temp;
+        quicksort(number, first, j - 1);
+        quicksort(number, j + 1, last);
+    }
 }
 
 double *find_median(double *orth, long *subset, long subset_len, long *a_b, double *b_minus_a_vec)
@@ -348,21 +351,49 @@ node_t *build_tree(long *subset, long subset_len, long id)
 
     if (subset_len > 1)
     {
+        long *a_b;
+        double *orth;
+        double *median;
+        double radius;
 
-        // Find A and B
-        long *a_b = furthest_apart(subset, subset_len);
-        double *b_minus_a_vec = (double *)malloc(sizeof(double) * n_dims);
-        difference(pts[subset[a_b[0]]], pts[subset[a_b[1]]], b_minus_a_vec);
+        if (subset_len == 2)
+        {
+            a_b = (long *)malloc(sizeof(long) * 2);
+            a_b[0] = 0;
+            a_b[1] = 1;
+            orth = (double *)malloc(sizeof(double) * subset_len);
+            orth[0] = pts[subset[a_b[0]]][0];
+            orth[1] = pts[subset[a_b[1]]][0];
 
-        // Orthogonal projection
-        double *orth = orth_projection(subset, subset_len, a_b, b_minus_a_vec);
+            median = (double *)malloc(sizeof(double) * n_dims);
+            double total;
+            double diff;
+            for (int i = 0; i < n_dims; i++)
+            {
+                median[i] = (pts[subset[0]][i] + pts[subset[1]][i]) / 2.0;
+                diff = median[i] - pts[subset[0]][i];
+                total += (diff * diff);
+            }
+            radius = sqrt(total);
+        }
+        else
+        {
+            // Find A and B
+            a_b = furthest_apart(subset, subset_len);
+            double *b_minus_a_vec = (double *)malloc(sizeof(double) * n_dims);
+            difference(pts[subset[a_b[0]]], pts[subset[a_b[1]]], b_minus_a_vec);
 
-        // Find median point
-        double *median = find_median(orth, subset, subset_len, a_b, b_minus_a_vec);
+            // Orthogonal projection
+            orth = orth_projection(subset, subset_len, a_b, b_minus_a_vec);
 
-        // Find radius
-        double radius = find_radius(median, subset, subset_len);
+            // Find median point
+            median = find_median(orth, subset, subset_len, a_b, b_minus_a_vec);
 
+            // Find radius
+            radius = find_radius(median, subset, subset_len);
+
+            free(b_minus_a_vec);
+        }
         // Create node with id, center coords and radius
         root = create_node(id, median, radius);
 
@@ -375,7 +406,7 @@ node_t *build_tree(long *subset, long subset_len, long id)
         root->R = build_tree(subset_R, subset_len / 2 + (subset_len % 2), id + subset_len - (subset_len % 2));
 
         free(orth);
-        free(b_minus_a_vec);
+
         free(a_b);
     }
     else
