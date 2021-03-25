@@ -202,13 +202,44 @@ int cmpfunc(const void *pt_1, const void *pt_2)
     return 0;
 }
 
+void quicksort(double *number, long first, long last){
+   long i, j, pivot;
+   double temp;
+
+   if(first<last){
+      pivot=first;
+      i=first;
+      j=last;
+
+      while(i<j){
+         while(number[i]<=number[pivot]&&i<last)
+            i++;
+         while(number[j]>number[pivot])
+            j--;
+         if(i<j){
+            temp=number[i];
+            number[i]=number[j];
+            number[j]=temp;
+         }
+      }
+
+      temp=number[pivot];
+      number[pivot]=number[j];
+      number[j]=temp;
+      quicksort(number,first,j-1);
+      quicksort(number,j+1,last);
+
+   }
+}
+
 double *find_median(double *orth, long *subset, long subset_len, long *a_b, double *b_minus_a_vec)
 {
     double *new_pt;
     double *ordered_orth = (double *)malloc(sizeof(double) * subset_len);
     memcpy(ordered_orth, orth, sizeof(double) * subset_len);
 
-    qsort(ordered_orth, subset_len, sizeof(double), cmpfunc);
+    //qsort(ordered_orth, subset_len, sizeof(double), cmpfunc);
+    quicksort(ordered_orth, 0, subset_len - 1);
 
     if (subset_len % 2 == 1)
     {
