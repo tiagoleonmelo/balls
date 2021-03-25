@@ -351,26 +351,28 @@ node_t *build_tree(long *subset, long subset_len, long id)
     if (subset_len > 1)
     {
         long *a_b;
+        double *pt_a;
+        double *pt_b;
         double *orth;
         double *median;
         double radius;
 
         if (subset_len == 2)
         {
-            a_b = (long *)malloc(sizeof(long) * 2);
-            a_b[0] = 0;
-            a_b[1] = 1;
+            pt_a = pts[subset[0]];
+            pt_b = pts[subset[1]];
+
             orth = (double *)malloc(sizeof(double) * subset_len);
-            orth[0] = pts[subset[a_b[0]]][0];
-            orth[1] = pts[subset[a_b[1]]][0];
+            orth[0] = pt_a[0];
+            orth[1] = pt_b[0];
 
             median = (double *)malloc(sizeof(double) * n_dims);
-            double total;
             double diff;
+            double total = 0;
             for (int i = 0; i < n_dims; i++)
             {
-                median[i] = (pts[subset[0]][i] + pts[subset[1]][i]) / 2.0;
-                diff = median[i] - pts[subset[0]][i];
+                median[i] = (pt_a[i] + pt_b[i]) / 2.0;
+                diff = median[i] - pt_a[i];
                 total += (diff * diff);
             }
             radius = sqrt(total);
@@ -379,8 +381,8 @@ node_t *build_tree(long *subset, long subset_len, long id)
         {
             // Find A and B
             a_b = furthest_apart(subset, subset_len);
-            double *pt_a = pts[subset[a_b[0]]];
-            double *pt_b = pts[subset[a_b[1]]];
+            pt_a = pts[subset[a_b[0]]];
+            pt_b = pts[subset[a_b[1]]];
 
             double *b_minus_a_vec = (double *)malloc(sizeof(double) * n_dims);
             difference(pt_a, pt_b, b_minus_a_vec);
@@ -395,6 +397,7 @@ node_t *build_tree(long *subset, long subset_len, long id)
             radius = find_radius(median, subset, subset_len);
 
             free(b_minus_a_vec);
+            free(a_b);
         }
         // Create node with id, center coords and radius
         root = create_node(id, median, radius);
@@ -408,8 +411,6 @@ node_t *build_tree(long *subset, long subset_len, long id)
         root->R = build_tree(subset_R, subset_len / 2 + (subset_len % 2), id + subset_len - (subset_len % 2));
 
         free(orth);
-
-        free(a_b);
     }
     else
     {
