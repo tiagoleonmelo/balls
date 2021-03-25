@@ -261,20 +261,6 @@ double *find_median(double *orth, long *subset, long subset_len, double *pt_a, d
 {
     double *new_pt;
 
-    if (subset_len == 2)
-    {
-        new_pt = single_projection(orth[0], pt_a, subset, b_minus_a_vec);
-        double *pt2 = single_projection(orth[1], pt_a, subset, b_minus_a_vec);
-
-        for (int i = 0; i < n_dims; i++)
-        {
-            new_pt[i] = (new_pt[i] + pt2[i]) / 2.0;
-        }
-        free(pt2);
-
-        return new_pt;
-    }
-
     double *ordered_orth = (double *)malloc(sizeof(double) * subset_len);
     memcpy(ordered_orth, orth, sizeof(double) * subset_len);
 
