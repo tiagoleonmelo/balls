@@ -20,12 +20,12 @@ int n_dims;
 long n_points;
 int seed;
 double **pts;
-node_t *tree;
+node_t **nodes;
 
 node_t *create_node(int id, double *center_coord, double radius)
 {
-    // Allocate memory for new node
-    node_t *node = (node_t *)malloc(sizeof(node_t));
+    // Retrieve node pointer
+    node_t *node = nodes[id];
 
     node->id = id;
     node->center_coord = center_coord;
@@ -449,7 +449,7 @@ void dump_tree(node_t *root)
     printf("\n");
     if (!(L == NULL && R == NULL))
         free(root->center_coord);
-    free(root);
+    // free(root);
 
     // Recursive call
     dump_tree(L);
@@ -480,6 +480,12 @@ int main(int argc, char *argv[])
     }
 
     long num_nodes = 2 * n_points - 1;
+
+    node_t *_nodes = (node_t *)malloc(num_nodes * sizeof(*_nodes));
+    nodes = (node_t **)malloc(num_nodes * sizeof(*nodes));
+    for (long i = 0; i < num_nodes; i++)
+        nodes[i] = _nodes + i;
+
     node_t *root = build_tree(full_set, n_points, 0);
 
     exec_time += omp_get_wtime();
@@ -487,6 +493,9 @@ int main(int argc, char *argv[])
 
     printf("%d %ld\n", n_dims, num_nodes);
     dump_tree(root); // to the stdout!
+
+    free(nodes);
+    free(_nodes);
     free(pts[0]);
     free(pts);
     return 0;
