@@ -1,8 +1,12 @@
-ballAlg: ballAlg.o
-	gcc ballAlg.o -fopenmp -O3 -lm -o ballAlg
+CFLAGS = -g -Wall -fopenmp -O3
 
-ballAlg.o: ballAlg.c
-	gcc -g -c ballAlg.c -o ballAlg.o
+ALL: ballAlg ballQuery
+
+ballAlg: ballAlg.c
+	gcc $(CFLAGS) $< -lm -o $@
+
+ballQuery: ballQuery.c
+	gcc $< -lm -o $@
 
 clean:
-	rm -f ballAlg.o ballAlg
+	rm -f ballAlg ballQuery
