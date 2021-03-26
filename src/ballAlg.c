@@ -152,8 +152,6 @@ double *orth_projection(long *subset, long subset_len, long a, long b, double *p
             continue;
         }
 
-        double p_minus_a = pts[subset[p]][0] - pt_a[0];
-
         double *p_minus_a_vec = (double *)malloc(sizeof(double) * n_dims);
         difference(pts[subset[p]], pt_a, p_minus_a_vec);
 
