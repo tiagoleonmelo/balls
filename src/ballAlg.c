@@ -146,7 +146,7 @@ double *orth_projection(long *subset, long subset_len, long a, long b, double *p
     for (long p = 0; p < subset_len; p++)
     {
 
-        if (p == a || p == b) // If p == a or p == b
+        if (p == a || p == b)
         {
             proj[p] = pts[subset[p]][0];
             continue;
@@ -172,7 +172,6 @@ double *single_projection(double orth_zero, double *pt_a, long *subset, double *
     double *new_point = (double *)malloc(sizeof(double) * n_dims);
 
     // retrieve scalar knowing that orth_zero = scalar * (b-a)[0] + a[0]
-
     double scalar = (orth_zero - pt_a[0]) / b_minus_a_vec[0];
 
     new_point[0] = orth_zero;
@@ -203,9 +202,7 @@ void swap(double *a, double *b)
     *b = temp;
 }
 
-// Standard partition process of QuickSort(). It considers the last
-// element as pivot and moves all smaller element to left of it and
-// greater elements to right. This function is used by randomPartition()
+// Standard partition process of QuickSort.
 long partition(double arr[], long l, long r)
 {
     double x = arr[r];
@@ -232,9 +229,8 @@ long randomPartition(double arr[], long l, long r)
     return partition(arr, l, r);
 }
 
-// This function returns k'th smallest element in arr[l..r] using
-// QuickSort based method. ASSUMPTION: ELEMENTS IN ARR[] ARE DISTINCT
-double kthSmallest(double arr[], long l, long r, long k)
+// Quickselect implementation that returns the smallest k'th element
+double quickselect(double arr[], long l, long r, long k)
 {
     // If k is smaller than number of elements in array
     if (k > 0 && k <= r - l + 1)
@@ -247,10 +243,10 @@ double kthSmallest(double arr[], long l, long r, long k)
         if (pos - l == k - 1)
             return arr[pos];
         if (pos - l > k - 1) // If position is more, recur for left subarray
-            return kthSmallest(arr, l, pos - 1, k);
+            return quickselect(arr, l, pos - 1, k);
 
         // Else recur for right subarray
-        return kthSmallest(arr, pos + 1, r, k - pos + l - 1);
+        return quickselect(arr, pos + 1, r, k - pos + l - 1);
     }
 
     // If k is more than the number of elements in the array
@@ -265,8 +261,8 @@ double *find_median(double *orth, long *subset, long subset_len, double *pt_a, d
     memcpy(ordered_orth, orth, sizeof(double) * subset_len);
 
     long mid_index = subset_len / 2;
-    //qsort(ordered_orth, subset_len, sizeof(double), cmpfunc);
-    double median = kthSmallest(ordered_orth, 0, subset_len - 1, mid_index + 1);
+
+    double median = quickselect(ordered_orth, 0, subset_len - 1, mid_index + 1);
 
     new_pt = single_projection(median, pt_a, subset, b_minus_a_vec); // Pass along point
 
@@ -274,7 +270,7 @@ double *find_median(double *orth, long *subset, long subset_len, double *pt_a, d
     {
         double *pt2;
         long mid_index2 = (subset_len / 2) - 1;
-        double median2 = kthSmallest(ordered_orth, 0, subset_len - 1, mid_index2 + 1);
+        double median2 = quickselect(ordered_orth, 0, subset_len - 1, mid_index2 + 1);
         pt2 = single_projection(median2, pt_a, subset, b_minus_a_vec);
 
         for (int i = 0; i < n_dims; i++)
@@ -312,10 +308,6 @@ void split(double *orth, double *median, long *subset, long subset_len, long *le
 
 double find_radius(double *center, long *subset, long subset_len)
 {
-    // if (subset_len == 1 || subset_len == 0)
-    // {
-    //     return 0;
-    // }
 
     double current_dist;
     double max_dist = -1;
@@ -414,7 +406,6 @@ node_t *build_tree(long *subset, long subset_len, long id)
     }
     else
     {
-
         // Create leaf
         root = create_node(id, pts[subset[0]], 0);
     }
