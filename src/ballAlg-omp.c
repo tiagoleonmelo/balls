@@ -389,19 +389,20 @@ node_t *build_tree(long *subset, long subset_len, long id)
             // Find median point
             median = find_median(orth, subset, subset_len, pt_a, b_minus_a_vec);
 
-            //#pragma omp task
-            // {
-                // Find radius
+            // Find radius
+            #pragma omp task shared(radius)
                 radius = find_radius(median, subset, subset_len);
-                // Create node with id, center coords and radius
-                root = create_node(id, median, radius);
-            // }
 
-            //#pragma omp task
+            // Split between Left and Right branches
+            #pragma omp task
                 split(orth, median, subset, subset_len, subset_L, subset_R);
 
-            //#pragma omp taskwait
-            
+            // Wait for tasks to finish
+            #pragma omp taskwait
+
+            // Create node with id, center coords and radius
+            root = create_node(id, median, radius);
+
             free(b_minus_a_vec);
             free(a_b);
         }
