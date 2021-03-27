@@ -343,6 +343,9 @@ node_t *build_tree(long *subset, long subset_len, long id)
         double *orth;
         double *median;
         double radius;
+        
+        long *subset_L = (long *)malloc(sizeof(long) * subset_len / 2);
+        long *subset_R = (long *)malloc(sizeof(long) * (subset_len / 2 + (subset_len % 2)));
 
         if (subset_len == 2)
         {
@@ -352,10 +355,10 @@ node_t *build_tree(long *subset, long subset_len, long id)
             orth = (double *)malloc(sizeof(double) * subset_len);
             orth[0] = pt_a[0];
             orth[1] = pt_b[0];
-
+            double total;
+            total=0;
             median = (double *)malloc(sizeof(double) * n_dims);
             double diff;
-            double total = 0;
             for (int i = 0; i < n_dims; i++)
             {
                 median[i] = (pt_a[i] + pt_b[i]) / 2.0;
@@ -363,6 +366,12 @@ node_t *build_tree(long *subset, long subset_len, long id)
                 total += (diff * diff);
             }
             radius = sqrt(total);
+
+            // Create node with id, center coords and radius
+            root = create_node(id, median, radius);
+
+            split(orth, median, subset, subset_len, subset_L, subset_R);
+
         }
         else
         {
@@ -376,25 +385,31 @@ node_t *build_tree(long *subset, long subset_len, long id)
 
             // Orthogonal projection
             orth = orth_projection(subset, subset_len, a_b[0], a_b[1], pt_a, b_minus_a_vec);
-
+            
             // Find median point
             median = find_median(orth, subset, subset_len, pt_a, b_minus_a_vec);
 
-            // Find radius
-            radius = find_radius(median, subset, subset_len);
+            //#pragma omp task
+            // {
+                // Find radius
+                radius = find_radius(median, subset, subset_len);
+                // Create node with id, center coords and radius
+                root = create_node(id, median, radius);
+            // }
 
+            //#pragma omp task
+                split(orth, median, subset, subset_len, subset_L, subset_R);
+
+            //#pragma omp taskwait
+            
             free(b_minus_a_vec);
             free(a_b);
         }
-        // Create node with id, center coords and radius
-        root = create_node(id, median, radius);
 
-        // Split among L, R
-        long *subset_L = (long *)malloc(sizeof(long) * subset_len / 2);
-        long *subset_R = (long *)malloc(sizeof(long) * (subset_len / 2 + (subset_len % 2)));
-        split(orth, median, subset, subset_len, subset_L, subset_R);
-
+        #pragma omp task
         root->L = build_tree(subset_L, subset_len / 2, id + 1);
+        
+        #pragma omp task
         root->R = build_tree(subset_R, subset_len / 2 + (subset_len % 2), id + subset_len - (subset_len % 2));
 
         free(orth);
@@ -467,19 +482,23 @@ int main(int argc, char *argv[])
 
     long num_nodes = 2 * n_points - 1;
 
+    node_t *root;
     node_t *_nodes = (node_t *)malloc(num_nodes * sizeof(*_nodes));
     nodes = (node_t **)malloc(num_nodes * sizeof(*nodes));
     for (long i = 0; i < num_nodes; i++)
         nodes[i] = _nodes + i;
 
-    node_t *root = build_tree(full_set, n_points, 0);
-
+    #pragma omp parallel
+    {
+        #pragma omp single
+        root = build_tree(full_set, n_points, 0);
+    }
     exec_time += omp_get_wtime();
     fprintf(stderr, "%.1lf\n", exec_time);
 
     printf("%d %ld\n", n_dims, num_nodes);
     dump_tree(root); // to the stdout!
-
+    
     free(nodes);
     free(_nodes);
     free(pts[0]);
