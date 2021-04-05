@@ -41,6 +41,7 @@ double distance(long a, long b)
     double *pt_a = pts[a];
     double *pt_b = pts[b];
 
+    // #pragma omp parallel for reduction(+:total)
     for (int i = 0; i < n_dims; i++)
     {
         diff = pt_a[i] - pt_b[i];
@@ -451,7 +452,6 @@ void dump_tree(node_t *root)
     printf("\n");
     if (!(L == NULL && R == NULL))
         free(root->center_coord);
-    // free(root);
 
     // Recursive call
     dump_tree(L);
@@ -469,6 +469,8 @@ int main(int argc, char *argv[])
     n_dims = atoi(argv[1]);
     n_points = atol(argv[2]);
     seed = atoi(argv[3]);
+
+    // omp_set_nested(10);
 
     double exec_time;
     exec_time = -omp_get_wtime();
@@ -490,16 +492,20 @@ int main(int argc, char *argv[])
         nodes[i] = _nodes + i;
 
     #pragma omp parallel
+    #pragma omp single
     {
-        #pragma omp single
         root = build_tree(full_set, n_points, 0);
     }
+        
     exec_time += omp_get_wtime();
     fprintf(stderr, "%.1lf\n", exec_time);
 
     printf("%d %ld\n", n_dims, num_nodes);
+
+    // TODO: parallelize
     dump_tree(root); // to the stdout!
-    
+
+
     free(nodes);
     free(_nodes);
     free(pts[0]);
