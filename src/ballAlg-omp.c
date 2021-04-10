@@ -578,8 +578,6 @@ int main(int argc, char *argv[])
     n_points = atol(argv[2]);
     seed = atoi(argv[3]);
 
-    // omp_set_nested(2);
-
     double exec_time;
     exec_time = -omp_get_wtime();
 
@@ -602,24 +600,25 @@ int main(int argc, char *argv[])
     root->subset = full_set;
     root->subset_len = n_points;
 
+    int best_thr_level = ceil(log(omp_get_max_threads()) / log(2));
+    long num_complete_levels = (long)(log(num_nodes + 1) / log(2));
+    int level_thr = best_thr_level < num_complete_levels - 1 ? best_thr_level : num_complete_levels - 1;
+
     long level_size = 1;
 
-    // if (omp_get_num_threads())
-    int level_thr = 3;
+    // Build top nodes
     for (int l = 0; l < level_thr; l++) // niveis
     {
-
 #pragma omp parallel for
         for (int i = 0; i < level_size; i++)
         {
             int id = get_id(i, l);
             build_node(id);
         }
-
-        // base_id = child_base_id;
         level_size *= 2;
     }
 
+    // Distribute remaining subtrees through the threads
 #pragma omp parallel for
     for (int i = 0; i < level_size; i++) // 8 is size of level 4
     {
