@@ -487,13 +487,14 @@ int main(int argc, char *argv[])
     long base_id = 0;
     long level_size = 1;
     long child_base_id;
-    // #pragma omp parrallel
+    // #pragma omp for
     // #pragma omp single
-    // {
+    //     {
 
     for (long l = 0; l < num_levels; l++) // niveis
     {
         child_base_id = base_id + level_size;
+#pragma omp parallel for
         for (long i = 0; i < level_size; i++)
         {
             build_tree(base_id + i, child_base_id + 2 * i, child_base_id + 2 * i + 1);
@@ -502,6 +503,7 @@ int main(int argc, char *argv[])
         level_size *= 2;
         base_id = child_base_id;
     }
+    // }
 
     exec_time += omp_get_wtime();
     fprintf(stderr, "%.1lf\n", exec_time);
