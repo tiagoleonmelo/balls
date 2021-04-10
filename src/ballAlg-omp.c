@@ -41,7 +41,6 @@ double distance(long a, long b)
     double *pt_a = pts[a];
     double *pt_b = pts[b];
 
-    // #pragma omp parallel for reduction(+:total)
     for (int i = 0; i < n_dims; i++)
     {
         diff = pt_a[i] - pt_b[i];
@@ -108,27 +107,10 @@ double inner_product(double *a, double *b)
 void difference(double *a, double *b, double *res)
 {
 
+// #pragma omp parallel for
     for (int dim = 0; dim < n_dims; dim++)
     {
         res[dim] = a[dim] - b[dim];
-    }
-}
-
-void sum(double *a, double *b, double *res)
-{
-
-    for (int dim = 0; dim < n_dims; dim++)
-    {
-        res[dim] = a[dim] + b[dim];
-    }
-}
-
-void vector_scalar_product(double scalar, double *v, double *res)
-{
-
-    for (int dim = 0; dim < n_dims; dim++)
-    {
-        res[dim] = scalar * v[dim];
     }
 }
 
@@ -140,7 +122,7 @@ double *orth_projection(long *subset, long subset_len, long a, long b, double *p
     double b_minus_a = b_minus_a_vec[0];
 
     double inner_prod_b_minus_a = inner_product(b_minus_a_vec, b_minus_a_vec);
-
+// #pragma omp parallel for
     for (long p = 0; p < subset_len; p++)
     {
 
@@ -344,7 +326,7 @@ node_t *build_tree(long *subset, long subset_len, long id)
         double *orth;
         double *median;
         double radius;
-        
+
         long *subset_L = (long *)malloc(sizeof(long) * subset_len / 2);
         long *subset_R = (long *)malloc(sizeof(long) * (subset_len / 2 + (subset_len % 2)));
 
@@ -357,7 +339,7 @@ node_t *build_tree(long *subset, long subset_len, long id)
             orth[0] = pt_a[0];
             orth[1] = pt_b[0];
             double total;
-            total=0;
+            total = 0;
             median = (double *)malloc(sizeof(double) * n_dims);
             double diff;
             for (int i = 0; i < n_dims; i++)
@@ -372,7 +354,6 @@ node_t *build_tree(long *subset, long subset_len, long id)
             root = create_node(id, median, radius);
 
             split(orth, median, subset, subset_len, subset_L, subset_R);
-
         }
         else
         {
@@ -386,20 +367,20 @@ node_t *build_tree(long *subset, long subset_len, long id)
 
             // Orthogonal projection
             orth = orth_projection(subset, subset_len, a_b[0], a_b[1], pt_a, b_minus_a_vec);
-            
+
             // Find median point
             median = find_median(orth, subset, subset_len, pt_a, b_minus_a_vec);
 
             // Find radius
-            #pragma omp task shared(radius)
-                radius = find_radius(median, subset, subset_len);
+            //#pragma omp task shared(radius)
+            radius = find_radius(median, subset, subset_len);
 
             // Split between Left and Right branches
-            #pragma omp task
-                split(orth, median, subset, subset_len, subset_L, subset_R);
+            //#pragma omp task
+            split(orth, median, subset, subset_len, subset_L, subset_R);
 
             // Wait for tasks to finish
-            #pragma omp taskwait
+            //#pragma omp taskwait
 
             // Create node with id, center coords and radius
             root = create_node(id, median, radius);
@@ -409,10 +390,14 @@ node_t *build_tree(long *subset, long subset_len, long id)
         }
 
         #pragma omp task
-        root->L = build_tree(subset_L, subset_len / 2, id + 1);
-        
+        {
+            root->L = build_tree(subset_L, subset_len / 2, id + 1);
+        }
+
         #pragma omp task
-        root->R = build_tree(subset_R, subset_len / 2 + (subset_len % 2), id + subset_len - (subset_len % 2));
+        {
+            root->R = build_tree(subset_R, subset_len / 2 + (subset_len % 2), id + subset_len - (subset_len % 2));
+        }
 
         free(orth);
     }
@@ -470,7 +455,7 @@ int main(int argc, char *argv[])
     n_points = atol(argv[2]);
     seed = atoi(argv[3]);
 
-    // omp_set_nested(10);
+    // omp_set_nested(1);
 
     double exec_time;
     exec_time = -omp_get_wtime();
@@ -496,15 +481,13 @@ int main(int argc, char *argv[])
     {
         root = build_tree(full_set, n_points, 0);
     }
-        
+
     exec_time += omp_get_wtime();
     fprintf(stderr, "%.1lf\n", exec_time);
 
     printf("%d %ld\n", n_dims, num_nodes);
 
-    // TODO: parallelize
     dump_tree(root); // to the stdout!
-
 
     free(nodes);
     free(_nodes);
