@@ -315,100 +315,6 @@ double find_radius(double *center, long *subset, long subset_len)
     return max_dist;
 }
 
-// node_t *build_tree_tasks(long *subset, long subset_len, long id)
-// {
-//     node_t *root;
-
-//     if (subset_len > 1)
-//     {
-//         long *a_b;
-//         double *pt_a;
-//         double *pt_b;
-//         double *orth;
-//         double *median;
-//         double radius;
-
-//         long *subset_L = (long *)malloc(sizeof(long) * subset_len / 2);
-//         long *subset_R = (long *)malloc(sizeof(long) * (subset_len / 2 + (subset_len % 2)));
-
-//         if (subset_len == 2)
-//         {
-//             pt_a = pts[subset[0]];
-//             pt_b = pts[subset[1]];
-
-//             orth = (double *)malloc(sizeof(double) * subset_len);
-//             orth[0] = pt_a[0];
-//             orth[1] = pt_b[0];
-//             double total;
-//             total = 0;
-//             median = (double *)malloc(sizeof(double) * n_dims);
-//             double diff;
-//             for (int i = 0; i < n_dims; i++)
-//             {
-//                 median[i] = (pt_a[i] + pt_b[i]) / 2.0;
-//                 diff = median[i] - pt_a[i];
-//                 total += (diff * diff);
-//             }
-//             radius = sqrt(total);
-
-//             // Create node with id, center coords and radius
-//             root = create_node(id, median, radius);
-
-//             split(orth, median, subset, subset_len, subset_L, subset_R);
-//         }
-//         else
-//         {
-//             // Find A and B
-//             a_b = furthest_apart(subset, subset_len);
-//             pt_a = pts[subset[a_b[0]]];
-//             pt_b = pts[subset[a_b[1]]];
-
-//             double *b_minus_a_vec = (double *)malloc(sizeof(double) * n_dims);
-//             difference(pt_a, pt_b, b_minus_a_vec);
-
-//             // Orthogonal projection
-//             orth = orth_projection(subset, subset_len, a_b[0], a_b[1], pt_a, b_minus_a_vec);
-
-//             // Find median point
-//             median = find_median(orth, subset, subset_len, pt_a, b_minus_a_vec);
-
-// // Find radius
-// #pragma omp task shared(radius)
-//             radius = find_radius(median, subset, subset_len);
-
-// // Split between Left and Right branches
-// #pragma omp task
-//             split(orth, median, subset, subset_len, subset_L, subset_R);
-
-// // Wait for tasks to finish
-// #pragma omp taskwait
-
-//             // Create node with id, center coords and radius
-//             root = create_node(id, median, radius);
-
-//             free(b_minus_a_vec);
-//             free(a_b);
-//         }
-
-// #pragma omp task
-//         root->L = build_tree_tasks(subset_L, subset_len / 2, id + 1);
-
-// #pragma omp task
-//         root->R = build_tree_tasks(subset_R, subset_len / 2 + (subset_len % 2), id + subset_len - (subset_len % 2));
-
-//         free(orth);
-//     }
-//     else
-//     {
-//         // Create leaf
-//         root = create_node(id, pts[subset[0]], 0);
-//     }
-
-//     free(subset);
-
-//     return root;
-// }
-
 void build_tree(long id)
 {
     node_t *root = nodes[id];
@@ -508,7 +414,7 @@ void build_tree(long id)
     free(subset);
 }
 
-void build_node(long id, long l_id, long r_id)
+void build_node(long id)
 {
     node_t *node = nodes[id];
     long subset_len = node->subset_len;
@@ -588,6 +494,9 @@ void build_node(long id, long l_id, long r_id)
             free(a_b);
         }
 
+        long l_id = id + 1;
+        long r_id = id + subset_len - (subset_len % 2);
+
         node_t *left = nodes[l_id];
         node->L = left;
         left->subset_len = subset_len / 2;
@@ -640,6 +549,23 @@ void dump_tree(node_t *root)
     dump_tree(R);
 }
 
+int get_id(int i, int level)
+{
+    if (level == 0)
+        return 0;
+
+    int parent_id = get_id(i / 2, level - 1);
+    if (i % 2 == 0)
+    {
+        return parent_id + 1;
+    }
+    else
+    {
+        long len = nodes[parent_id]->subset_len;
+        return parent_id + len - (len % 2);
+    }
+}
+
 int main(int argc, char *argv[])
 {
     if (argc != 4)
@@ -652,7 +578,7 @@ int main(int argc, char *argv[])
     n_points = atol(argv[2]);
     seed = atoi(argv[3]);
 
-    omp_set_nested(2);
+    // omp_set_nested(2);
 
     double exec_time;
     exec_time = -omp_get_wtime();
@@ -665,8 +591,7 @@ int main(int argc, char *argv[])
         full_set[i] = i;
     }
 
-    long num_nodes = 2 * n_points - 1; // (1 << ((long)(log(2 * n_points - 1) / log(2)) + 1)) - 1;
-    long num_levels = (long)(log(num_nodes) / log(2)) + 1;
+    long num_nodes = 2 * n_points - 1;
 
     node_t *_nodes = (node_t *)malloc(num_nodes * sizeof(*_nodes));
     nodes = (node_t **)malloc(num_nodes * sizeof(*nodes));
@@ -677,34 +602,30 @@ int main(int argc, char *argv[])
     root->subset = full_set;
     root->subset_len = n_points;
 
-    long base_id = 0;
     long level_size = 1;
-    long child_base_id;
-    // #pragma omp for
-    // #pragma omp single
-    //     {
 
     // if (omp_get_num_threads())
-
-    for (long l = 0; l < 4; l++) // niveis
+    int level_thr = 3;
+    for (int l = 0; l < level_thr; l++) // niveis
     {
-        child_base_id = base_id + level_size;
-        for (long i = 0; i < level_size; i++)
+
+#pragma omp parallel for
+        for (int i = 0; i < level_size; i++)
         {
-            build_node(base_id + i, child_base_id + 2 * i, child_base_id + 2 * i + 1);
+            int id = get_id(i, l);
+            build_node(id);
         }
 
+        // base_id = child_base_id;
         level_size *= 2;
-        base_id = child_base_id;
     }
 
 #pragma omp parallel for
-    for (long i = 0; i < level_size; i++) // 8 is size of level 4
+    for (int i = 0; i < level_size; i++) // 8 is size of level 4
     {
-
-        build_tree(base_id + i);
+        int id = get_id(i, level_thr);
+        build_tree(id);
     }
-    // }
 
     exec_time += omp_get_wtime();
     fprintf(stderr, "%.1lf\n", exec_time);
@@ -719,8 +640,3 @@ int main(int argc, char *argv[])
     free(pts);
     return 0;
 }
-/* parallel single
-for niveis= 0 ; niveis 
-    pragma for
-        for i= ponto
- */
