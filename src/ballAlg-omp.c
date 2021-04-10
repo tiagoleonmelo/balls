@@ -7,6 +7,8 @@
 typedef struct node
 {
     int id;
+    long subset_len;
+    long *subset;
     double *center_coord;
     double radius;
     struct node *L;
@@ -19,7 +21,7 @@ int seed;
 double **pts;
 node_t **nodes;
 
-node_t *create_node(int id, double *center_coord, double radius)
+void fill_node(int id, double *center_coord, double radius)
 {
     // Retrieve node pointer
     node_t *node = nodes[id];
@@ -30,7 +32,6 @@ node_t *create_node(int id, double *center_coord, double radius)
 
     node->L = NULL;
     node->R = NULL;
-    return node;
 }
 
 double distance(long a, long b)
@@ -107,7 +108,7 @@ double inner_product(double *a, double *b)
 void difference(double *a, double *b, double *res)
 {
 
-// #pragma omp parallel for
+    // #pragma omp parallel for
     for (int dim = 0; dim < n_dims; dim++)
     {
         res[dim] = a[dim] - b[dim];
@@ -122,7 +123,7 @@ double *orth_projection(long *subset, long subset_len, long a, long b, double *p
     double b_minus_a = b_minus_a_vec[0];
 
     double inner_prod_b_minus_a = inner_product(b_minus_a_vec, b_minus_a_vec);
-// #pragma omp parallel for
+    // #pragma omp parallel for
     for (long p = 0; p < subset_len; p++)
     {
 
@@ -314,9 +315,14 @@ double find_radius(double *center, long *subset, long subset_len)
     return max_dist;
 }
 
-node_t *build_tree(long *subset, long subset_len, long id)
+void build_tree(long id, long l_id, long r_id)
 {
-    node_t *root;
+    node_t *node = nodes[id];
+    long subset_len = node->subset_len;
+    long *subset = node->subset;
+
+    if (subset_len == 0)
+        return;
 
     if (subset_len > 1)
     {
@@ -351,7 +357,7 @@ node_t *build_tree(long *subset, long subset_len, long id)
             radius = sqrt(total);
 
             // Create node with id, center coords and radius
-            root = create_node(id, median, radius);
+            fill_node(id, median, radius);
 
             split(orth, median, subset, subset_len, subset_L, subset_R);
         }
@@ -383,33 +389,31 @@ node_t *build_tree(long *subset, long subset_len, long id)
             //#pragma omp taskwait
 
             // Create node with id, center coords and radius
-            root = create_node(id, median, radius);
+            fill_node(id, median, radius);
 
             free(b_minus_a_vec);
             free(a_b);
         }
 
-        #pragma omp task
-        {
-            root->L = build_tree(subset_L, subset_len / 2, id + 1);
-        }
+        node_t *left = nodes[l_id];
+        node->L = left;
+        left->subset_len = subset_len / 2;
+        left->subset = subset_L;
 
-        #pragma omp task
-        {
-            root->R = build_tree(subset_R, subset_len / 2 + (subset_len % 2), id + subset_len - (subset_len % 2));
-        }
+        node_t *right = nodes[r_id];
+        node->R = right;
+        right->subset_len = subset_len / 2 + (subset_len % 2);
+        right->subset = subset_R;
 
         free(orth);
     }
     else
     {
         // Create leaf
-        root = create_node(id, pts[subset[0]], 0);
+        fill_node(id, pts[subset[0]], 0);
     }
 
     free(subset);
-
-    return root;
 }
 
 void dump_tree(node_t *root)
@@ -455,7 +459,7 @@ int main(int argc, char *argv[])
     n_points = atol(argv[2]);
     seed = atoi(argv[3]);
 
-    // omp_set_nested(1);
+    omp_set_nested(2);
 
     double exec_time;
     exec_time = -omp_get_wtime();
@@ -468,18 +472,35 @@ int main(int argc, char *argv[])
         full_set[i] = i;
     }
 
-    long num_nodes = 2 * n_points - 1;
+    long num_nodes = (1 << ((long)(log(2 * n_points - 1) / log(2)) + 1)) - 1; //2 * n_points - 1;
+    long num_levels = (long)(log(num_nodes) / log(2)) + 1;
 
-    node_t *root;
     node_t *_nodes = (node_t *)malloc(num_nodes * sizeof(*_nodes));
     nodes = (node_t **)malloc(num_nodes * sizeof(*nodes));
     for (long i = 0; i < num_nodes; i++)
         nodes[i] = _nodes + i;
 
-    #pragma omp parallel
-    #pragma omp single
+    node_t *root = nodes[0];
+    root->subset = full_set;
+    root->subset_len = n_points;
+
+    long base_id = 0;
+    long level_size = 1;
+    long child_base_id;
+    // #pragma omp parrallel
+    // #pragma omp single
+    // {
+
+    for (long l = 0; l < num_levels; l++) // niveis
     {
-        root = build_tree(full_set, n_points, 0);
+        child_base_id = base_id + level_size;
+        for (long i = 0; i < level_size; i++)
+        {
+            build_tree(base_id + i, child_base_id + 2 * i, child_base_id + 2 * i + 1);
+        }
+
+        level_size *= 2;
+        base_id = child_base_id;
     }
 
     exec_time += omp_get_wtime();
@@ -495,3 +516,8 @@ int main(int argc, char *argv[])
     free(pts);
     return 0;
 }
+/* parallel single
+for niveis= 0 ; niveis 
+    pragma for
+        for i= ponto
+ */
