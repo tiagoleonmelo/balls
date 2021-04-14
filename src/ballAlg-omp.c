@@ -97,6 +97,7 @@ double inner_product(double *a, double *b)
 {
     double total = 0;
 
+    // #pragma omp parallel for reduction(+:total)
     for (int dim = 0; dim < n_dims; dim++)
     {
         total += a[dim] * b[dim];
@@ -107,8 +108,6 @@ double inner_product(double *a, double *b)
 
 void difference(double *a, double *b, double *res)
 {
-
-    // #pragma omp parallel for
     for (int dim = 0; dim < n_dims; dim++)
     {
         res[dim] = a[dim] - b[dim];
@@ -123,7 +122,10 @@ double *orth_projection(long *subset, long subset_len, long a, long b, double *p
     double b_minus_a = b_minus_a_vec[0];
 
     double inner_prod_b_minus_a = inner_product(b_minus_a_vec, b_minus_a_vec);
-    // #pragma omp parallel for
+
+    int const currentNumThreads = omp_get_num_threads();
+    int const maxNumThreads = omp_get_max_threads();
+    #pragma omp parallel for num_threads(maxNumThreads/currentNumThreads)
     for (long p = 0; p < subset_len; p++)
     {
 
@@ -270,6 +272,7 @@ void split(double *orth, double *median, long *subset, long subset_len, long *le
     long ind_left = 0;
     long ind_right = 0;
 
+    // #pragma omp parallel for
     for (int i = 0; i < subset_len; i++)
     {
         if (median[0] > orth[i])
@@ -605,11 +608,11 @@ int main(int argc, char *argv[])
     int level_thr = best_thr_level < num_complete_levels - 1 ? best_thr_level : num_complete_levels - 1;
 
     long level_size = 1;
+    omp_set_nested(2);
 
-    // Build top nodes
     for (int l = 0; l < level_thr; l++) // niveis
     {
-#pragma omp parallel for
+        #pragma omp parallel for
         for (int i = 0; i < level_size; i++)
         {
             int id = get_id(i, l);
@@ -618,9 +621,14 @@ int main(int argc, char *argv[])
         level_size *= 2;
     }
 
+    exec_time += omp_get_wtime();
+    fprintf(stderr, "%.1lf\n", exec_time);
+    exec_time = -omp_get_wtime();
+
+    omp_set_nested(0);
     // Distribute remaining subtrees through the threads
-#pragma omp parallel for
-    for (int i = 0; i < level_size; i++) // 8 is size of level 4
+    #pragma omp parallel for
+    for (int i = 0; i < level_size; i++)
     {
         int id = get_id(i, level_thr);
         build_tree(id);

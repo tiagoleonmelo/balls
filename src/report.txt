@@ -1,0 +1,8 @@
+@x Weekly report:
+Esta semana após a discussão com o professor, decidimos criar uma versão iterativa do nosso programa (previamente recursivo) para podermos com mais facilidade aplicar a paralelização. 
+No final ficamos com uma versão que constrói a árvore nível a nível até ter um número de filhos semelhante ao número de threads. A partir daí distribuimos cada um desses filhos por cada thread, criando a subtree resultante recursivamente. 
+Com esta versão conseguimos já usar nested parallelism, paralelizando alguns dos ciclos 'for' dentro de funções específicas.
+Neste momento conseguimos atingir um speedup de 3, ou 4 em exemplos com maior número de dimensões (previamente de 2).
+Correndo o projeto com o profiler ompP verificamos que a maior parte do nosso overhead se deve a 'imbalance'.
+Tentaremos então melhorar ainda mais o speedup, dado que estamos a usar 12 threads. 
+Abraço!
