@@ -1,26 +1,20 @@
 #include "pomp_lib.h"
 
-struct ompregdescr omp_rd_27 = {
-  "parallelfor", "", 0, "ballAlg-omp.c", 111, 111, 115, 115
+struct ompregdescr omp_rd_1 = {
+  "parallelfor", "", 0, "ballAlg-omp.c", 100, 100, 104, 104
 };
 
-#define POMP_DLIST_00027 shared(omp_rd_27)
+#define POMP_DLIST_00001 shared(omp_rd_1)
 
-struct ompregdescr omp_rd_28 = {
-  "parallelfor", "", 0, "ballAlg-omp.c", 126, 126, 144, 144
+struct ompregdescr omp_rd_2 = {
+  "parallelfor", "", 0, "ballAlg-omp.c", 128, 128, 146, 146
 };
 
-#define POMP_DLIST_00028 shared(omp_rd_28)
+#define POMP_DLIST_00002 shared(omp_rd_2)
 
-struct ompregdescr omp_rd_29 = {
-  "parallelfor", "", 0, "ballAlg-omp.c", 612, 612, 617, 617
+struct ompregdescr omp_rd_3 = {
+  "parallelfor", "", 0, "ballAlg-omp.c", 626, 626, 631, 631
 };
 
-#define POMP_DLIST_00029 shared(omp_rd_29)
-
-struct ompregdescr omp_rd_30 = {
-  "parallelfor", "", 0, "ballAlg-omp.c", 627, 627, 632, 632
-};
-
-#define POMP_DLIST_00030 shared(omp_rd_30)
+#define POMP_DLIST_00003 shared(omp_rd_3)
 

@@ -21,13 +21,6 @@ int seed;
 double **pts;
 node_t **nodes;
 
-void destroy_memory() {
-    free(nodes);
-    //free(_nodes);
-    free(pts[0]);
-    free(pts);
-}
-
 void fill_node(int id, double *center_coord, double radius)
 {
     // Retrieve node pointer
@@ -67,10 +60,6 @@ long *furthest_apart(long *subset, long subset_len)
     double curr_dist;
 
     long *ret = (long *)malloc(sizeof(long) * 2);
-    if (ret == NULL) {
-        perror("Error allocating memory in furthest_apart\n");
-        exit(1);
-    }
 
     for (long i = 1; i < subset_len; i++)
     {
@@ -134,9 +123,9 @@ double *orth_projection(long *subset, long subset_len, long a, long b, double *p
 
     double inner_prod_b_minus_a = inner_product(b_minus_a_vec, b_minus_a_vec);
 
-    int const currentNumThreads = omp_get_num_threads();
-    int const maxNumThreads = omp_get_max_threads();
-    #pragma omp parallel for num_threads(maxNumThreads/currentNumThreads)
+    //int const currentNumThreads = omp_get_num_threads();
+    //int const maxNumThreads = omp_get_max_threads();
+    //#pragma omp parallel for num_threads(maxNumThreads/currentNumThreads)
     for (long p = 0; p < subset_len; p++)
     {
 
@@ -308,9 +297,6 @@ double find_radius(double *center, long *subset, long subset_len)
     double diff;
     double *pt;
 
-    // int const currentNumThreads = omp_get_num_threads();
-    // int const maxNumThreads = omp_get_max_threads();
-    // #pragma omp parallel for reduction(max: max_dist) num_threads(maxNumThreads/currentNumThreads)
     for (long i = 0; i < subset_len; i++)
     {
         current_dist = 0;
@@ -332,7 +318,7 @@ double find_radius(double *center, long *subset, long subset_len)
     return max_dist;
 }
 
-void build_tree(long id, int recursive)
+void build_tree(long id)
 {
     node_t *root = nodes[id];
     long subset_len = root->subset_len;
@@ -348,15 +334,7 @@ void build_tree(long id, int recursive)
         double radius;
 
         long *subset_L = (long *)malloc(sizeof(long) * subset_len / 2);
-        if (subset_L == NULL) {
-            perror("Error allocating memory for subset_L\n");
-            exit(1);
-        }
         long *subset_R = (long *)malloc(sizeof(long) * (subset_len / 2 + (subset_len % 2)));
-        if (subset_L == NULL) {
-            perror("Error allocating memory for subset_L\n");
-            exit(1);
-        }
 
         if (subset_len == 2)
         {
@@ -425,10 +403,112 @@ void build_tree(long id, int recursive)
         right->subset_len = subset_len / 2 + (subset_len % 2);
         right->subset = subset_R;
 
-        if(recursive) {
-            build_tree(l_id, 1);
-            build_tree(r_id, 1);
+        build_tree(l_id);
+        build_tree(r_id);
+
+        free(orth);
+    }
+    else
+    {
+        // Create leaf
+        fill_node(id, pts[subset[0]], 0);
+    }
+
+    free(subset);
+}
+
+void build_node(long id)
+{
+    node_t *node = nodes[id];
+    long subset_len = node->subset_len;
+    long *subset = node->subset;
+
+    if (subset_len == 0)
+        return;
+
+    if (subset_len > 1)
+    {
+        long *a_b;
+        double *pt_a;
+        double *pt_b;
+        double *orth;
+        double *median;
+        double radius;
+
+        long *subset_L = (long *)malloc(sizeof(long) * subset_len / 2);
+        long *subset_R = (long *)malloc(sizeof(long) * (subset_len / 2 + (subset_len % 2)));
+
+        if (subset_len == 2)
+        {
+            pt_a = pts[subset[0]];
+            pt_b = pts[subset[1]];
+
+            orth = (double *)malloc(sizeof(double) * subset_len);
+            orth[0] = pt_a[0];
+            orth[1] = pt_b[0];
+            double total;
+            total = 0;
+            median = (double *)malloc(sizeof(double) * n_dims);
+            double diff;
+            for (int i = 0; i < n_dims; i++)
+            {
+                median[i] = (pt_a[i] + pt_b[i]) / 2.0;
+                diff = median[i] - pt_a[i];
+                total += (diff * diff);
+            }
+            radius = sqrt(total);
+
+            // Create node with id, center coords and radius
+            fill_node(id, median, radius);
+
+            split(orth, median, subset, subset_len, subset_L, subset_R);
         }
+        else
+        {
+            // Find A and B
+            a_b = furthest_apart(subset, subset_len);
+            pt_a = pts[subset[a_b[0]]];
+            pt_b = pts[subset[a_b[1]]];
+
+            double *b_minus_a_vec = (double *)malloc(sizeof(double) * n_dims);
+            difference(pt_a, pt_b, b_minus_a_vec);
+
+            // Orthogonal projection
+            orth = orth_projection(subset, subset_len, a_b[0], a_b[1], pt_a, b_minus_a_vec);
+
+            // Find median point
+            median = find_median(orth, subset, subset_len, pt_a, b_minus_a_vec);
+
+            // Find radius
+            //#pragma omp task shared(radius)
+            radius = find_radius(median, subset, subset_len);
+
+            // Split between Left and Right branches
+            //#pragma omp task
+            split(orth, median, subset, subset_len, subset_L, subset_R);
+
+            // Wait for tasks to finish
+            //#pragma omp taskwait
+
+            // Create node with id, center coords and radius
+            fill_node(id, median, radius);
+
+            free(b_minus_a_vec);
+            free(a_b);
+        }
+
+        long l_id = id + 1;
+        long r_id = id + subset_len - (subset_len % 2);
+
+        node_t *left = nodes[l_id];
+        node->L = left;
+        left->subset_len = subset_len / 2;
+        left->subset = subset_L;
+
+        node_t *right = nodes[r_id];
+        node->R = right;
+        right->subset_len = subset_len / 2 + (subset_len % 2);
+        right->subset = subset_R;
 
         free(orth);
     }
@@ -489,7 +569,6 @@ int get_id(int i, int level)
     }
 }
 
-
 int main(int argc, char *argv[])
 {
     if (argc != 4)
@@ -507,10 +586,6 @@ int main(int argc, char *argv[])
 
     pts = get_points(argc, argv, &n_dims, &n_points);
     long *full_set = (long *)malloc(sizeof(long) * n_points);
-    if (full_set == NULL) {
-        perror("Error allocating memory for full_set\n");
-        exit(1);
-    }
 
     for (long i = 0; i < n_points; i++)
     {
@@ -520,18 +595,7 @@ int main(int argc, char *argv[])
     long num_nodes = 2 * n_points - 1;
 
     node_t *_nodes = (node_t *)malloc(num_nodes * sizeof(*_nodes));
-    if (_nodes == NULL) {
-        perror("Error allocating memory for _nodes\n");
-        free(full_set);
-        exit(1);
-    }
     nodes = (node_t **)malloc(num_nodes * sizeof(*nodes));
-    if (nodes == NULL) {
-        perror("Error allocating memory for nodes\n");
-        free(full_set);
-        free(_nodes);
-        exit(1);
-    }
     for (long i = 0; i < num_nodes; i++)
         nodes[i] = _nodes + i;
 
@@ -552,7 +616,7 @@ int main(int argc, char *argv[])
         for (int i = 0; i < level_size; i++)
         {
             int id = get_id(i, l);
-            build_tree(id, 0);
+            build_node(id);
         }
         level_size *= 2;
     }
@@ -563,7 +627,7 @@ int main(int argc, char *argv[])
     for (int i = 0; i < level_size; i++)
     {
         int id = get_id(i, level_thr);
-        build_tree(id, 1);
+        build_tree(id);
     }
 
     exec_time += omp_get_wtime();
