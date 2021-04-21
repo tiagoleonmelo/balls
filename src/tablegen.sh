@@ -15,6 +15,12 @@ OMP_NUM_THREADS="$1" ./ballAlg-omp 3 20000000 0 > /dev/null 2>> $filename
 
 OMP_NUM_THREADS="$1" ./ballAlg-omp 4 20000000 0 > /dev/null 2>> $filename
 
+OMP_NUM_THREADS="$1" ./ballAlg-omp 5 20000000 0 > /dev/null 2>> $filename
+
+OMP_NUM_THREADS="$1" ./ballAlg-omp 6 20000000 0 > /dev/null 2>> $filename
+
+OMP_NUM_THREADS="$1" ./ballAlg-omp 7 20000000 0 > /dev/null 2>> $filename
+
 # 0.0
 # $ ballQuery ex-2-5-0.tree 3 1
 # 2.777747 5.539700 
