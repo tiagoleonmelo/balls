@@ -108,7 +108,6 @@ double inner_product(double *a, double *b)
 {
     double total = 0;
 
-    // #pragma omp parallel for reduction(+:total)
     for (int dim = 0; dim < n_dims; dim++)
     {
         total += a[dim] * b[dim];
@@ -136,9 +135,6 @@ double *orth_projection(long *subset, long subset_len, long a, long b, double *p
 
     double inner_prod_b_minus_a = inner_product(b_minus_a_vec, b_minus_a_vec);
 
-    //int const currentNumThreads = omp_get_num_threads();
-    //int const maxNumThreads = omp_get_max_threads();
-    // #pragma omp parallel for //num_threads(maxNumThreads/currentNumThreads)
     for (long p = 0; p < subset_len; p++)
     {
 
@@ -307,7 +303,6 @@ void split(double *orth, double *median, long *subset, long subset_len, long *le
     long ind_left = 0;
     long ind_right = 0;
 
-    // #pragma omp parallel for
     for (int i = 0; i < subset_len; i++)
     {
         if (median[0] > orth[i])
@@ -332,9 +327,6 @@ double find_radius(double *center, long *subset, long subset_len)
     double diff;
     double *pt;
 
-    //int const currentNumThreads = omp_get_num_threads();
-    //int const maxNumThreads = omp_get_max_threads();
-    // #pragma omp parallel for reduction(max: max_dist) // num_threads(maxNumThreads/currentNumThreads)
     for (long i = 0; i < subset_len; i++)
     {
         current_dist = 0;
@@ -639,10 +631,6 @@ int main(int argc, char *argv[])
     long level_size = 1;
     omp_set_nested(2);
 
-    exec_time += omp_get_wtime();
-    fprintf(stderr, "beginning first for %.1lf\n", exec_time);
-    exec_time = -omp_get_wtime();
-
     for (int l = 0; l < level_thr; l++) // niveis
     {
 #pragma omp parallel for
@@ -653,10 +641,6 @@ int main(int argc, char *argv[])
         }
         level_size *= 2;
     }
-
-    exec_time += omp_get_wtime();
-    fprintf(stderr, "beginning second for %.1lf\n", exec_time);
-    exec_time = -omp_get_wtime();
 
     omp_set_nested(0);
 // Distribute remaining subtrees through the threads
