@@ -1,6 +1,6 @@
 CFLAGS = -g -Wall -fopenmp -O3
 
-ALL: ballAlg ballAlg-omp ballQuery
+ALL: ballAlg ballAlg-omp ballAlg-mpi
 
 ballAlg: ballAlg.c
 	gcc $(CFLAGS) $< -lm -o $@
@@ -8,8 +8,8 @@ ballAlg: ballAlg.c
 ballAlg-omp: ballAlg-omp.c
 	gcc $(CFLAGS) $< -lm -o $@
 
-ballQuery: ballQuery.c
-	gcc $< -lm -o $@
+ballAlg-mpi: ballAlg-mpi.c
+	mpicc $(CFLAGS) $< -lm -o $@
 
 clean:
-	rm -f ballAlg ballAlg-omp ballQuery
+	rm -f ballAlg ballAlg-omp ballAlg-mpi
