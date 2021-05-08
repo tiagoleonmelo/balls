@@ -500,11 +500,13 @@ void build_tree(long id, int recursive)
 
         node_t *left = nodes[l_id];
         root->L = left;
+        left->id = l_id;
         left->subset_len = subset_len / 2;
         left->subset = subset_L;
 
         node_t *right = nodes[r_id];
         root->R = right;
+        right->id = r_id;
         right->subset_len = subset_len / 2 + (subset_len % 2);
         right->subset = subset_R;
 
@@ -534,21 +536,6 @@ void dump_tree(node_t *root)
     node_t *R = root->R;
 
     if (!(L == NULL && R == NULL))
-    {
-        printf("%d %d %d %f ", root->id, L->id, R->id, root->radius);
-    }
-    else
-    {
-        printf("%d -1 -1 %f ", root->id, root->radius);
-    }
-
-    for (size_t i = 0; i < n_dims; i++)
-    {
-        printf("%.6f ", root->center_coord[i]);
-    }
-
-    printf("\n");
-    if (!(L == NULL && R == NULL))
         free(root->center_coord);
 
     // Recursive call
@@ -556,9 +543,8 @@ void dump_tree(node_t *root)
     dump_tree(R);
 }
 
-void print_tree(int id)
+void print_tree(node_t *root)
 {
-    node_t *root = nodes[id];
     if (root == NULL)
         return;
 
@@ -582,8 +568,25 @@ void print_tree(int id)
     printf("\n");
 
     // Recursive call
-    dump_tree(L);
-    dump_tree(R);
+    print_tree(L);
+    print_tree(R);
+}
+
+void print_node(int id)
+{
+    node_t *root = nodes[id];
+
+    node_t *L = root->L;
+    node_t *R = root->R;
+
+    printf("%d %d %d %f ", root->id, L->id, R->id, root->radius);
+
+    for (size_t i = 0; i < n_dims; i++)
+    {
+        printf("%.6f ", root->center_coord[i]);
+    }
+
+    printf("\n");
 }
 
 int get_id(int i, int level)
@@ -611,14 +614,14 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    MPI_Status status;
+    // MPI_Status status;
     int pid, p;
+
+    MPI_Init(&argc, &argv);
 
     n_dims = atoi(argv[1]);
     n_points = atol(argv[2]);
     seed = atoi(argv[3]);
-
-    MPI_Init(&argc, &argv);
 
     MPI_Comm_rank(MPI_COMM_WORLD, &pid);
     MPI_Comm_size(MPI_COMM_WORLD, &p);
@@ -670,7 +673,6 @@ int main(int argc, char *argv[])
 
     long level_size = 1;
 
-    //if(!pid) {
     for (int l = 0; l < level_thr; l++) // niveis
     {
         for (int i = 0; i < level_size; i++)
@@ -681,39 +683,15 @@ int main(int argc, char *argv[])
         level_size *= 2;
     }
 
-    //}
-
-    /*     if(!pid){
-	    MPI_Send(&i, 1, MPI_INT, 1, i, MPI_COMM_WORLD);
-        // Scatter
-	    MPI_Recv(&i, 1, MPI_INT, p-1, i, MPI_COMM_WORLD, &status);
-	}
-	else{
-	    MPI_Recv(&i, 1, MPI_INT, pid-1, i, MPI_COMM_WORLD, &status);
-        nodes = 
-
-        int id = get_id(i, level_thr);
-        build_tree(id, 1);
-
-	    MPI_Send(&i, 1, MPI_INT, (id+1)%p, i, MPI_COMM_WORLD);
-	} */
-
-    // TODO: Scatter later
-
     for (int i = pid; i < level_size; i += p)
     {
         int id = get_id(i, level_thr);
         build_tree(id, 1);
     }
 
-    /*     if(!id){
-	    MPI_Recv(&i, 1, MPI_INT, p-1, i, MPI_COMM_WORLD, &status);
-	}
-	else{
-	    MPI_Send(&i, 1, MPI_INT, (id+1)%p, i, MPI_COMM_WORLD);
-	} */
-
+    MPI_Barrier(MPI_COMM_WORLD);
     exec_time += MPI_Wtime();
+
     if (!pid)
     {
         fprintf(stderr, "%.1lf\n", exec_time);
@@ -726,37 +704,27 @@ int main(int argc, char *argv[])
             for (int i = 0; i < level_size; i++)
             {
                 int id = get_id(i, l);
-                node_t *root = nodes[id];
-
-                node_t *L = root->L;
-                node_t *R = root->R;
-
-
-                    printf("%d %d %d %f ", root->id, L->id, R->id, root->radius);
-
-
-                for (size_t i = 0; i < n_dims; i++)
-                {
-                    printf("%.6f ", root->center_coord[i]);
-                }
-
-                printf("\n");
+                print_node(id);
             }
             level_size *= 2;
         }
     }
+
     MPI_Barrier(MPI_COMM_WORLD);
-    for (int i = pid; i < level_size; i += p)
+
+    for (int i = 0; i < level_size; i++)
     {
-        int id = get_id(i, level_thr);
-        print_tree(id);
+        if (i % p == pid) {
+            int id = get_id(i, level_thr);
+            node_t *temp_root = nodes[id];
+            print_tree(temp_root);
+        }
+        MPI_Barrier(MPI_COMM_WORLD);
     }
 
-    //fflush(stdout);
+    dump_tree(root); // to the stdout!
 
-    //dump_tree(root); // to the stdout!
-
-    //destroy_memory();
+    destroy_memory();
 
     MPI_Finalize();
     return 0;
