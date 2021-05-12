@@ -22,12 +22,12 @@ long n_points;
 int seed;
 double **pts;
 node_t **nodes;
-node_t *_nodes;
+// node_t *_nodes;
 
 void destroy_memory()
 {
     free(nodes);
-    free(_nodes);
+    // free(_nodes);
     free(pts[0]);
     free(pts);
 }
@@ -629,7 +629,7 @@ int main(int argc, char *argv[])
     double exec_time;
     exec_time = -MPI_Wtime();
 
-    pts = get_points(argc, argv, &n_dims, &n_points);
+    pts = get_points(argc, argv, &n_dims, &n_points, p, pid);
     long *full_set = (long *)malloc(sizeof(long) * n_points);
     if (full_set == NULL)
     {
@@ -644,24 +644,26 @@ int main(int argc, char *argv[])
 
     long num_nodes = 2 * n_points - 1;
 
-    _nodes = (node_t *)malloc(num_nodes * sizeof(*_nodes));
+    /* _nodes = (node_t *)malloc(num_nodes * sizeof(*_nodes));
     if (_nodes == NULL)
     {
         perror("Error allocating memory for _nodes");
         free(full_set);
         exit(1);
-    }
+    } */
+
     nodes = (node_t **)malloc(num_nodes * sizeof(*nodes));
     if (nodes == NULL)
     {
         perror("Error allocating memory for nodes");
         free(full_set);
-        free(_nodes);
+        // free(_nodes);
         exit(1);
     }
 
     for (long i = 0; i < num_nodes; i++)
-        nodes[i] = _nodes + i;
+        if (i % p == pid)
+            nodes[i] = (node_t *)malloc(sizeof(nodes[i]));
 
     node_t *root = nodes[0];
     root->subset = full_set;

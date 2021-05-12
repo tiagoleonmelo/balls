@@ -7,24 +7,24 @@ extern void print_point(double *, int);
 
 double **create_array_pts(int n_dims, long np)
 {
-    double *_p_arr;
+    // double *_p_arr;
     double **p_arr;
 
-    _p_arr = (double *)malloc(n_dims * np * sizeof(double));
+    // _p_arr = (double *)malloc(n_dims * np * sizeof(double));
     p_arr = (double **)malloc(np * sizeof(double *));
-    if ((_p_arr == NULL) || (p_arr == NULL))
+    if (/* (_p_arr == NULL) || */ (p_arr == NULL))
     {
         printf("Error allocating array of points, exiting.\n");
         exit(4);
     }
 
-    for (long i = 0; i < np; i++)
-        p_arr[i] = &_p_arr[i * n_dims];
+    /* for (long i = 0; i < np; i++)
+        p_arr[i] = &_p_arr[i * n_dims]; */
 
     return p_arr;
 }
 
-double **get_points(int argc, char *argv[], int *n_dims, long *np)
+double **get_points(int argc, char *argv[], int *n_dims, long *np, int num_process, int pid)
 {
     double **pt_arr;
     unsigned seed;
@@ -57,8 +57,18 @@ double **get_points(int argc, char *argv[], int *n_dims, long *np)
     pt_arr = (double **)create_array_pts(*n_dims, *np);
 
     for (i = 0; i < *np; i++)
+    {
+        if (i % num_process == pid)
+            pt_arr[i] = (double *)malloc(*n_dims * sizeof(double));
+
         for (j = 0; j < *n_dims; j++)
-            pt_arr[i][j] = RANGE * ((double)random()) / RAND_MAX;
+        {
+            double pt_dim = RANGE * ((double)random()) / RAND_MAX;
+
+            if (i % num_process == pid)
+                pt_arr[i][j] = pt_dim;
+        }
+    }
 
 #ifdef DEBUG
     for (i = 0; i < *np; i++)
