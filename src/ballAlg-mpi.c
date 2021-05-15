@@ -536,22 +536,6 @@ void dump_tree(node_t *root)
     node_t *R = root->R;
 
     if (!(L == NULL && R == NULL))
-        free(root->center_coord);
-
-    // Recursive call
-    dump_tree(L);
-    dump_tree(R);
-}
-
-void print_tree(node_t *root)
-{
-    if (root == NULL)
-        return;
-
-    node_t *L = root->L;
-    node_t *R = root->R;
-
-    if (!(L == NULL && R == NULL))
     {
         printf("%d %d %d %f ", root->id, L->id, R->id, root->radius);
     }
@@ -567,12 +551,15 @@ void print_tree(node_t *root)
 
     printf("\n");
 
+    if (!(L == NULL && R == NULL))
+        free(root->center_coord);
+
     // Recursive call
-    print_tree(L);
-    print_tree(R);
+    dump_tree(L);
+    dump_tree(R);
 }
 
-void print_node(int id)
+void dump_node(int id)
 {
     node_t *root = nodes[id];
 
@@ -585,6 +572,9 @@ void print_node(int id)
     {
         printf("%.6f ", root->center_coord[i]);
     }
+
+    if (!(L == NULL && R == NULL))
+        free(root->center_coord);
 
     printf("\n");
 }
@@ -704,25 +694,28 @@ int main(int argc, char *argv[])
             for (int i = 0; i < level_size; i++)
             {
                 int id = get_id(i, l);
-                print_node(id);
+                dump_node(id);
             }
             level_size *= 2;
         }
     }
 
+    fflush(stdout);
     MPI_Barrier(MPI_COMM_WORLD);
 
     for (int i = 0; i < level_size; i++)
     {
-        if (i % p == pid) {
+        if (i % p == pid)
+        {
             int id = get_id(i, level_thr);
             node_t *temp_root = nodes[id];
-            print_tree(temp_root);
+            dump_tree(temp_root);
         }
+        fflush(stdout);
         MPI_Barrier(MPI_COMM_WORLD);
     }
 
-    dump_tree(root); // to the stdout!
+    // dump_tree(root); // to the stdout!
 
     destroy_memory();
 
