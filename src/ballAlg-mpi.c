@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <mpi.h>
 #include "gen_points.c"
+#include <stddef.h>
 
 typedef struct node
 {
@@ -17,12 +18,22 @@ typedef struct node
     struct node *R;
 } node_t;
 
+typedef struct dbl_index_struct
+{
+    double val;
+    long index;
+} dbl_index;
+
 int n_dims;
 long n_points;
 int seed;
 double **pts;
 node_t **nodes;
 // node_t *_nodes;
+int pid;
+int p;
+MPI_Datatype mpi_dbl_index;
+MPI_Op mpi_maxloc_dbl_index;
 
 void destroy_memory()
 {
@@ -43,6 +54,24 @@ void fill_node(int id, double *center_coord, double radius)
 
     node->L = NULL;
     node->R = NULL;
+}
+
+void maxloc_dbl_index(void *in, void *inout, int *len, MPI_Datatype *type)
+{
+    /* ignore type, just trust that it's our dbl_index type */
+    dbl_index *invals = in;
+    dbl_index *inoutvals = inout;
+
+    for (int i = 0; i < *len; i++)
+    {
+        if (invals[i].val > inoutvals[i].val)
+        {
+            inoutvals[i].val = invals[i].val;
+            inoutvals[i].index = invals[i].index;
+        }
+    }
+
+    return;
 }
 
 double distance(long a, long b)
@@ -67,6 +96,10 @@ long *furthest_apart(long *subset, long subset_len)
 
     // Don't forget: A and B are indexes relative to the subset!
     long first = subset[0];
+
+    MPI_Bcast(pts[first], n_dims, MPI_DOUBLE, first % p, MPI_COMM_WORLD);
+
+
     double max_dist = -1;
     double curr_dist;
 
@@ -76,14 +109,31 @@ long *furthest_apart(long *subset, long subset_len)
 
     for (long i = 1; i < subset_len; i++)
     {
-        curr_dist = distance(first, subset[i]);
-
-        if (curr_dist > max_dist)
+        if (subset[i] % p == pid)
         {
-            max_dist = curr_dist;
-            ret[0] = i;
+            curr_dist = distance(first, subset[i]);
+
+            if (curr_dist > max_dist)
+            {
+                max_dist = curr_dist;
+                ret[0] = i;
+            }
         }
     }
+
+
+    dbl_index local, global;
+    local.index = ret[0];
+    local.val = max_dist;
+
+    MPI_Allreduce(&local, &global, 1, mpi_dbl_index, mpi_maxloc_dbl_index, MPI_COMM_WORLD);
+
+    printf("%f %f\n", max_dist, global.val);
+
+    // root = index % num_p
+
+    //MPI_Bcast(buf, len, type, root, comm);
+
 
     max_dist = -1;
 
@@ -615,7 +665,6 @@ int main(int argc, char *argv[])
     }
 
     // MPI_Status status;
-    int pid, p;
 
     MPI_Init(&argc, &argv);
 
@@ -625,6 +674,18 @@ int main(int argc, char *argv[])
 
     MPI_Comm_rank(MPI_COMM_WORLD, &pid);
     MPI_Comm_size(MPI_COMM_WORLD, &p);
+
+    /* create our new data type */
+    MPI_Datatype types[2] = {MPI_DOUBLE, MPI_LONG};
+    MPI_Aint disps[2] = {offsetof(dbl_index, val),
+                         offsetof(dbl_index, index)};
+
+    int lens[2] = {1, 1};
+    MPI_Type_create_struct(2, lens, disps, types, &mpi_dbl_index);
+    MPI_Type_commit(&mpi_dbl_index);
+
+    /* create our operator */
+    MPI_Op_create(maxloc_dbl_index, 1, &mpi_maxloc_dbl_index);
 
     double exec_time;
     exec_time = -MPI_Wtime();
@@ -661,15 +722,21 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    for (long i = 0; i < num_nodes; i++)
-        if (i % p == pid)
-            nodes[i] = (node_t *)malloc(sizeof(nodes[i]));
-
+    // alloc space for root
+    nodes[0] = (node_t *)malloc(sizeof(nodes[0]));
     node_t *root = nodes[0];
     root->subset = full_set;
     root->subset_len = n_points;
+    build_tree()
 
-    int best_thr_level = ceil(log(p) / log(2));
+    for (long i = 1; i < num_nodes; i++)
+        if (i % p == pid)
+            nodes[i] = (node_t *)malloc(sizeof(nodes[i]));
+            build_tree(i, 0);
+
+
+
+    /* int best_thr_level = ceil(log(p) / log(2));
     long num_complete_levels = (long)(log(num_nodes + 1) / log(2));
     int level_thr = best_thr_level < num_complete_levels - 1 ? best_thr_level : num_complete_levels - 1;
 
@@ -689,7 +756,7 @@ int main(int argc, char *argv[])
     {
         int id = get_id(i, level_thr);
         build_tree(id, 1);
-    }
+    } */
 
     MPI_Barrier(MPI_COMM_WORLD);
     exec_time += MPI_Wtime();
@@ -716,7 +783,8 @@ int main(int argc, char *argv[])
 
     for (int i = 0; i < level_size; i++)
     {
-        if (i % p == pid) {
+        if (i % p == pid)
+        {
             int id = get_id(i, level_thr);
             node_t *temp_root = nodes[id];
             print_tree(temp_root);
@@ -728,6 +796,8 @@ int main(int argc, char *argv[])
 
     destroy_memory();
 
+    MPI_Op_free(&mpi_maxloc_dbl_index);
+    MPI_Type_free(&mpi_dbl_index);
     MPI_Finalize();
     return 0;
 }
