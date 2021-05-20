@@ -512,7 +512,9 @@ void build_tree(long id, int recursive)
 
         if (recursive)
         {
+#pragma omp task
             build_tree(l_id, 1);
+#pragma omp task
             build_tree(r_id, 1);
         }
 
@@ -665,6 +667,7 @@ int main(int argc, char *argv[])
 
     for (int l = 0; l < level_thr; l++) // niveis
     {
+#pragma omp parallel for
         for (int i = 0; i < level_size; i++)
         {
             int id = get_id(i, l);
@@ -685,6 +688,7 @@ int main(int argc, char *argv[])
     if (!pid)
     {
         fprintf(stderr, "%.1lf\n", exec_time);
+        fflush(stderr);
 
         printf("%d %ld\n", n_dims, num_nodes);
 
